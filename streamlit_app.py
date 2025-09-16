@@ -3,100 +3,371 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime
 import re
 from collections import defaultdict, Counter
-import json
 
 # Page config
 st.set_page_config(
-    page_title="Legal Tech Intelligence Platform",
+    page_title="Deep Feedback Intelligence Analyzer",
     page_icon="🧠",
     layout="wide"
 )
 
-# Advanced legal-specific ABSA model
-class LegalABSA:
+class DeepFeedbackAnalyzer:
     def __init__(self):
-        # Legal tech aspect definitions with sophisticated pattern matching
-        self.aspects = {
+        # Legal-specific aspect patterns
+        self.legal_aspects = {
             'search_functionality': {
-                'keywords': ['search', 'find', 'results', 'keyword', 'boolean', 'advanced search', 'query'],
-                'positive_patterns': ['accurate results', 'finds everything', 'precise search', 'relevant hits'],
-                'negative_patterns': ['can\'t find', 'irrelevant results', 'need advanced search', 'missing cases', 'poor ranking'],
-                'nuance_indicators': ['sometimes need', 'occasionally', 'mostly works but', 'usually good except']
+                'keywords': ['search', 'find', 'results', 'keyword', 'boolean', 'advanced search', 'query', 'lookup'],
+                'positive_signals': ['accurate', 'precise', 'finds everything', 'comprehensive results', 'relevant'],
+                'negative_signals': ['can\'t find', 'irrelevant', 'missing', 'poor results', 'incomplete'],
+                'friction_signals': ['need to go to', 'have to use', 'sometimes', 'switch to', 'manually']
             },
             'ease_of_use': {
-                'keywords': ['easy', 'intuitive', 'user-friendly', 'simple', 'interface', 'navigation'],
-                'positive_patterns': ['easy to use', 'intuitive interface', 'user-friendly', 'simple navigation'],
-                'negative_patterns': ['confusing', 'complicated', 'hard to use', 'difficult navigation'],
-                'nuance_indicators': ['mostly easy but', 'generally simple except', 'intuitive overall']
+                'keywords': ['easy', 'intuitive', 'user-friendly', 'simple', 'interface', 'navigation', 'usable'],
+                'positive_signals': ['easy to use', 'intuitive', 'user-friendly', 'straightforward', 'clear'],
+                'negative_signals': ['confusing', 'complicated', 'hard to use', 'difficult', 'unclear'],
+                'friction_signals': ['learning curve', 'getting used to', 'figuring out']
             },
             'content_quality': {
-                'keywords': ['content', 'cases', 'precedents', 'coverage', 'database', 'materials'],
-                'positive_patterns': ['comprehensive coverage', 'up-to-date', 'reliable content'],
-                'negative_patterns': ['outdated', 'missing coverage', 'incomplete database'],
-                'nuance_indicators': ['good coverage but missing', 'mostly current except']
+                'keywords': ['content', 'cases', 'precedents', 'coverage', 'database', 'materials', 'information'],
+                'positive_signals': ['comprehensive', 'up-to-date', 'reliable', 'complete', 'thorough'],
+                'negative_signals': ['outdated', 'missing', 'incomplete', 'unreliable', 'limited'],
+                'friction_signals': ['some gaps', 'mostly good but', 'generally complete except']
             },
-            'result_relevance': {
-                'keywords': ['relevance', 'ranking', 'sequence', 'order', 'priority', 'most relevant'],
-                'positive_patterns': ['highly relevant', 'perfect ranking', 'well-ordered'],
-                'negative_patterns': ['irrelevant results', 'poor ranking', 'wrong sequence', 'buried results'],
-                'nuance_indicators': ['generally relevant but', 'decent ranking except']
+            'performance': {
+                'keywords': ['speed', 'fast', 'slow', 'performance', 'loading', 'response', 'lag', 'quick'],
+                'positive_signals': ['fast', 'quick', 'responsive', 'instant', 'speedy'],
+                'negative_signals': ['slow', 'sluggish', 'laggy', 'takes forever', 'unresponsive'],
+                'friction_signals': ['usually fast but', 'mostly quick except', 'sometimes slow']
+            },
+            'support_quality': {
+                'keywords': ['support', 'help', 'service', 'assistance', 'team', 'response', 'customer service'],
+                'positive_signals': ['helpful', 'responsive', 'excellent support', 'quick response', 'knowledgeable'],
+                'negative_signals': ['unhelpful', 'slow response', 'poor service', 'unresponsive', 'rude'],
+                'friction_signals': ['usually helpful but', 'good support except', 'sometimes takes time']
+            },
+            'pricing_value': {
+                'keywords': ['price', 'cost', 'expensive', 'cheap', 'value', 'worth', 'budget', 'fee'],
+                'positive_signals': ['good value', 'worth it', 'reasonable', 'affordable', 'cost-effective'],
+                'negative_signals': ['expensive', 'overpriced', 'not worth', 'too costly', 'budget strain'],
+                'friction_signals': ['mostly worth it but', 'good value except', 'reasonable for most']
             }
         }
+        
+        # Emotion indicators
+        self.emotions = {
+            'frustrated': ['frustrated', 'annoying', 'irritated', 'fed up', 'bothered'],
+            'disappointed': ['disappointed', 'let down', 'expected more', 'underwhelmed'],
+            'confused': ['confused', 'unclear', 'don\'t understand', 'puzzled', 'lost'],
+            'satisfied': ['satisfied', 'happy', 'pleased', 'content', 'good'],
+            'delighted': ['love', 'amazing', 'fantastic', 'excellent', 'outstanding', 'brilliant'],
+            'concerned': ['worried', 'concerned', 'anxious', 'nervous', 'uncertain']
+        }
+        
+        # Hidden risk patterns
+        self.risk_patterns = {
+            'workflow_friction': ['need to', 'have to', 'sometimes', 'usually but', 'except when'],
+            'feature_gaps': ['don\'t know', 'not sure', 'haven\'t tried', 'unaware', 'never used'],
+            'competitive_risk': ['compared to', 'vs', 'other tools', 'alternatives', 'competitors'],
+            'churn_signals': ['considering', 'looking at', 'might switch', 'evaluating', 'thinking about']
+        }
+
+    def analyze_feedback(self, feedback_text, nps_score=None, structured_ratings=None):
+        """Comprehensive feedback analysis"""
+        
+        # 1. Aspect-Based Sentiment Analysis
+        aspect_analysis = self._analyze_aspects(feedback_text, structured_ratings)
+        
+        # 2. Hidden Pain Point Detection
+        pain_points = self._detect_hidden_pain_points(feedback_text, nps_score, aspect_analysis)
+        
+        # 3. Emotion Analysis
+        emotions = self._analyze_emotions(feedback_text)
+        
+        # 4. Risk Assessment
+        risks = self._assess_risks(feedback_text, nps_score, aspect_analysis)
+        
+        # 5. NPS Trajectory Prediction
+        trajectory = self._predict_trajectory(feedback_text, nps_score, aspect_analysis, risks)
+        
+        # 6. Strategic Recommendations
+        recommendations = self._generate_recommendations(aspect_analysis, pain_points, risks, emotions)
+        
+        return {
+            'aspect_analysis': aspect_analysis,
+            'pain_points': pain_points,
+            'emotions': emotions,
+            'risks': risks,
+            'trajectory': trajectory,
+            'recommendations': recommendations
+        }
     
-    def analyze_aspect_sentiment(self, text, nps_rating=None, sub_ratings=None):
+    def _analyze_aspects(self, text, structured_ratings=None):
         """Sophisticated aspect-based sentiment analysis"""
         results = {}
         text_lower = text.lower()
         
-        for aspect, config in self.aspects.items():
+        for aspect, config in self.legal_aspects.items():
             # Check if aspect is mentioned
-            mentions = sum(1 for keyword in config['keywords'] if keyword in text_lower)
+            keyword_mentions = sum(1 for keyword in config['keywords'] if keyword in text_lower)
             
-            if mentions > 0:
-                # Calculate base sentiment from patterns
-                pos_score = sum(1 for pattern in config['positive_patterns'] if pattern in text_lower)
-                neg_score = sum(1 for pattern in config['negative_patterns'] if pattern in text_lower)
-                nuance_score = sum(1 for pattern in config['nuance_indicators'] if pattern in text_lower)
+            if keyword_mentions > 0:
+                # Calculate sentiment signals
+                positive_count = sum(1 for signal in config['positive_signals'] if signal in text_lower)
+                negative_count = sum(1 for signal in config['negative_signals'] if signal in text_lower)
+                friction_count = sum(1 for signal in config['friction_signals'] if signal in text_lower)
+                
+                # Base sentiment calculation
+                if positive_count > negative_count:
+                    base_sentiment = 0.7
+                elif negative_count > positive_count:
+                    base_sentiment = -0.7
+                else:
+                    base_sentiment = 0.0
+                
+                # Adjust for friction (hidden issues)
+                if friction_count > 0:
+                    confidence = 0.6  # Lower confidence due to mixed signals
+                    hidden_risk = True
+                    if base_sentiment > 0:
+                        base_sentiment *= 0.7  # Reduce positive sentiment
+                else:
+                    confidence = 0.85
+                    hidden_risk = False
                 
                 # Incorporate structured ratings if available
-                if sub_ratings and aspect in sub_ratings:
-                    rating_sentiment = self._rating_to_sentiment(sub_ratings[aspect])
+                if structured_ratings and aspect in structured_ratings:
+                    rating_sentiment = self._convert_rating_to_sentiment(structured_ratings[aspect])
+                    # Weight: 60% text, 40% rating
+                    final_sentiment = (base_sentiment * 0.6) + (rating_sentiment * 0.4)
                 else:
-                    rating_sentiment = 0
-                
-                # Calculate final sentiment with nuance detection
-                base_sentiment = (pos_score - neg_score) / max(mentions, 1)
-                
-                # Adjust for nuance indicators (suggest hidden issues)
-                if nuance_score > 0:
-                    confidence = 0.6  # Lower confidence due to mixed signals
-                    risk_flag = True
-                else:
-                    confidence = 0.8
-                    risk_flag = False
-                
-                # Combine text sentiment with rating
-                final_sentiment = (base_sentiment + rating_sentiment) / 2 if rating_sentiment != 0 else base_sentiment
+                    final_sentiment = base_sentiment
                 
                 results[aspect] = {
                     'sentiment_score': final_sentiment,
                     'confidence': confidence,
-                    'mentions': mentions,
-                    'risk_flag': risk_flag,
-                    'nuance_detected': nuance_score > 0,
-                    'patterns_found': {
-                        'positive': [p for p in config['positive_patterns'] if p in text_lower],
-                        'negative': [p for p in config['negative_patterns'] if p in text_lower],
-                        'nuance': [p for p in config['nuance_indicators'] if p in text_lower]
-                    }
+                    'mentions': keyword_mentions,
+                    'hidden_risk': hidden_risk,
+                    'signals': {
+                        'positive': positive_count,
+                        'negative': negative_count,
+                        'friction': friction_count
+                    },
+                    'evidence': self._extract_evidence(text, config['keywords'])
                 }
         
         return results
     
-    def _rating_to_sentiment(self, rating_text):
+    def _detect_hidden_pain_points(self, text, nps_score, aspect_analysis):
+        """Identify non-obvious issues even in positive feedback"""
+        pain_points = []
+        text_lower = text.lower()
+        
+        # Pattern 1: High NPS but workflow friction
+        if nps_score and nps_score >= 7:
+            friction_indicators = ['need to', 'have to', 'sometimes', 'usually but', 'except']
+            friction_detected = any(indicator in text_lower for indicator in friction_indicators)
+            
+            if friction_detected:
+                pain_points.append({
+                    'type': 'workflow_inefficiency',
+                    'severity': 'medium',
+                    'description': 'User experiences process friction despite high satisfaction',
+                    'evidence': [phrase for phrase in friction_indicators if phrase in text_lower],
+                    'impact': 'Could lead to satisfaction erosion and competitive vulnerability',
+                    'business_risk': 'Productivity impact may drive users to evaluate alternatives'
+                })
+        
+        # Pattern 2: Positive sentiment with hidden friction
+        for aspect, data in aspect_analysis.items():
+            if data['sentiment_score'] > 0 and data['hidden_risk']:
+                pain_points.append({
+                    'type': f'{aspect}_optimization_opportunity',
+                    'severity': 'low-medium',
+                    'description': f'Positive {aspect.replace("_", " ")} experience with efficiency gaps',
+                    'evidence': f'Friction signals detected: {data["signals"]["friction"]} instances',
+                    'impact': 'Untapped potential for user satisfaction improvement',
+                    'business_risk': 'Competitors with smoother workflows could gain advantage'
+                })
+        
+        # Pattern 3: Knowledge gaps
+        knowledge_gaps = ['don\'t know', 'not sure', 'haven\'t tried', 'unaware']
+        gap_count = sum(1 for gap in knowledge_gaps if gap in text_lower)
+        
+        if gap_count > 0:
+            pain_points.append({
+                'type': 'feature_underutilization',
+                'severity': 'low',
+                'description': f'Customer unaware of {gap_count} product aspects or features',
+                'evidence': [gap for gap in knowledge_gaps if gap in text_lower],
+                'impact': 'Missing expansion and upsell opportunities',
+                'business_risk': 'Underutilized customers more likely to churn'
+            })
+        
+        return pain_points
+    
+    def _analyze_emotions(self, text):
+        """Detect emotional undertones"""
+        text_lower = text.lower()
+        detected_emotions = {}
+        
+        for emotion, indicators in self.emotions.items():
+            count = sum(1 for indicator in indicators if indicator in text_lower)
+            if count > 0:
+                detected_emotions[emotion] = {
+                    'intensity': min(count / len(indicators), 1.0),
+                    'indicators_found': [ind for ind in indicators if ind in text_lower]
+                }
+        
+        return detected_emotions
+    
+    def _assess_risks(self, text, nps_score, aspect_analysis):
+        """Assess business risks from feedback"""
+        risks = []
+        text_lower = text.lower()
+        
+        # Churn risk assessment
+        churn_signals = sum(1 for pattern in self.risk_patterns['churn_signals'] if pattern in text_lower)
+        competitive_mentions = sum(1 for pattern in self.risk_patterns['competitive_risk'] if pattern in text_lower)
+        
+        if churn_signals > 0:
+            risks.append({
+                'type': 'churn_risk',
+                'level': 'high' if churn_signals >= 2 else 'medium',
+                'description': 'Customer showing consideration of alternatives',
+                'indicators': [pattern for pattern in self.risk_patterns['churn_signals'] if pattern in text_lower]
+            })
+        
+        if competitive_mentions > 0:
+            risks.append({
+                'type': 'competitive_pressure',
+                'level': 'medium',
+                'description': 'Customer actively comparing with competitors',
+                'indicators': [pattern for pattern in self.risk_patterns['competitive_risk'] if pattern in text_lower]
+            })
+        
+        # Satisfaction erosion risk
+        hidden_friction_count = sum(1 for data in aspect_analysis.values() if data.get('hidden_risk', False))
+        
+        if hidden_friction_count >= 2:
+            risks.append({
+                'type': 'satisfaction_erosion',
+                'level': 'medium',
+                'description': 'Multiple friction points could compound over time',
+                'indicators': f'{hidden_friction_count} aspects with hidden friction detected'
+            })
+        
+        return risks
+    
+    def _predict_trajectory(self, text, nps_score, aspect_analysis, risks):
+        """Predict NPS trajectory"""
+        if not nps_score:
+            return {'prediction': 'Insufficient data', 'confidence': 0}
+        
+        # Base prediction from current NPS
+        current_segment = 'promoter' if nps_score >= 9 else 'passive' if nps_score >= 7 else 'detractor'
+        
+        # Risk factor impact
+        risk_impact = 0
+        for risk in risks:
+            if risk['level'] == 'high':
+                risk_impact -= 2
+            elif risk['level'] == 'medium':
+                risk_impact -= 1
+        
+        # Friction impact
+        friction_count = sum(1 for data in aspect_analysis.values() if data.get('hidden_risk', False))
+        friction_impact = -0.5 * friction_count
+        
+        # Positive aspect impact
+        positive_aspects = sum(1 for data in aspect_analysis.values() if data['sentiment_score'] > 0.5)
+        positive_impact = 0.3 * positive_aspects
+        
+        # Calculate predicted change
+        total_impact = risk_impact + friction_impact + positive_impact
+        
+        predictions = {
+            'current_nps': nps_score,
+            'current_segment': current_segment,
+            'predicted_change': total_impact,
+            'confidence': 0.7 if len(aspect_analysis) >= 2 else 0.5,
+            'timeframe': '3-6 months',
+            'key_factors': {
+                'risk_impact': risk_impact,
+                'friction_impact': friction_impact,
+                'positive_impact': positive_impact
+            }
+        }
+        
+        return predictions
+    
+    def _generate_recommendations(self, aspect_analysis, pain_points, risks, emotions):
+        """Generate strategic recommendations"""
+        recommendations = []
+        
+        # High priority: Address friction in positive aspects
+        friction_aspects = [aspect for aspect, data in aspect_analysis.items() 
+                          if data.get('hidden_risk', False) and data['sentiment_score'] > 0]
+        
+        if friction_aspects:
+            recommendations.append({
+                'priority': 'High',
+                'category': 'Optimization',
+                'title': f'Optimize {", ".join([a.replace("_", " ").title() for a in friction_aspects[:2]])}',
+                'description': 'Address workflow friction in currently positive aspects',
+                'rationale': 'Prevent satisfaction erosion and unlock efficiency gains',
+                'estimated_impact': f'+{len(friction_aspects) * 0.5:.1f} NPS points',
+                'implementation_effort': 'Medium',
+                'timeline': '2-3 sprints'
+            })
+        
+        # Medium priority: Address negative aspects
+        negative_aspects = [aspect for aspect, data in aspect_analysis.items() 
+                           if data['sentiment_score'] < -0.3]
+        
+        if negative_aspects:
+            recommendations.append({
+                'priority': 'Critical',
+                'category': 'Issue Resolution',
+                'title': f'Resolve {negative_aspects[0].replace("_", " ").title()} Issues',
+                'description': 'Address primary pain points affecting satisfaction',
+                'rationale': 'Direct impact on customer satisfaction and retention',
+                'estimated_impact': f'+{len(negative_aspects) * 1.0:.1f} NPS points',
+                'implementation_effort': 'High',
+                'timeline': '1-2 sprints'
+            })
+        
+        # Feature awareness opportunities
+        if any(pp['type'] == 'feature_underutilization' for pp in pain_points):
+            recommendations.append({
+                'priority': 'Medium',
+                'category': 'Customer Success',
+                'title': 'Enhanced Feature Onboarding',
+                'description': 'Improve awareness and adoption of underutilized features',
+                'rationale': 'Increase product value realization and reduce churn risk',
+                'estimated_impact': '+0.8 NPS points, 20% feature adoption increase',
+                'implementation_effort': 'Low',
+                'timeline': '1 sprint'
+            })
+        
+        # Emotional response strategies
+        if 'frustrated' in emotions or 'disappointed' in emotions:
+            recommendations.append({
+                'priority': 'Immediate',
+                'category': 'Customer Recovery',
+                'title': 'Proactive Customer Outreach',
+                'description': 'Personal follow-up to address emotional concerns',
+                'rationale': 'Prevent escalation and demonstrate commitment to improvement',
+                'estimated_impact': 'Prevent potential -2 to -3 NPS decline',
+                'implementation_effort': 'Low',
+                'timeline': 'Within 24 hours'
+            })
+        
+        return recommendations
+    
+    def _convert_rating_to_sentiment(self, rating):
         """Convert rating text to sentiment score"""
         rating_map = {
             'very satisfied': 1.0,
@@ -104,513 +375,281 @@ class LegalABSA:
             'neutral': 0.0,
             'dissatisfied': -0.5,
             'very dissatisfied': -1.0,
-            'don\'t know': 0.0  # Neutral but flagged separately
+            'excellent': 1.0,
+            'good': 0.5,
+            'fair': 0.0,
+            'poor': -0.5,
+            'very poor': -1.0,
+            'don\'t know': 0.0
         }
-        return rating_map.get(rating_text.lower(), 0.0)
-
-class LegalInsightEngine:
-    def __init__(self):
-        self.absa = LegalABSA()
+        return rating_map.get(rating.lower(), 0.0)
     
-    def extract_hidden_pain_points(self, feedback_data):
-        """Identify non-obvious issues even in positive feedback"""
-        pain_points = []
+    def _extract_evidence(self, text, keywords):
+        """Extract relevant sentences as evidence"""
+        sentences = text.split('.')
+        evidence = []
         
-        # Analyze the specific feedback
-        text = feedback_data.get('feedback_text', '')
-        nps = feedback_data.get('nps_score', 0)
+        for sentence in sentences:
+            if any(keyword in sentence.lower() for keyword in keywords):
+                evidence.append(sentence.strip())
         
-        # Pattern: High NPS but workflow inefficiencies
-        if nps >= 7 and ('need to go to' in text.lower() or 'sometimes' in text.lower()):
-            pain_points.append({
-                'type': 'workflow_friction',
-                'severity': 'medium',
-                'description': 'User experiences workflow interruptions despite high satisfaction',
-                'evidence': 'Mentions needing to switch to advanced search for basic tasks',
-                'risk': 'Could lead to satisfaction erosion over time'
-            })
-        
-        # Pattern: "Don't know" responses in structured ratings
-        dont_know_count = sum(1 for rating in feedback_data.get('sub_ratings', {}).values() 
-                             if rating.lower() == "don't know")
-        
-        if dont_know_count >= 2:
-            pain_points.append({
-                'type': 'feature_underutilization',
-                'severity': 'low',
-                'description': f'Customer unaware of {dont_know_count} key product aspects',
-                'evidence': f"Multiple 'Don't know' responses",
-                'risk': 'Missing upsell opportunities and potential churn to competitors'
-            })
-        
-        # Pattern: Subtle language indicating inefficiency
-        efficiency_indicators = ['need to', 'have to', 'sometimes', 'occasionally', 'usually but']
-        if any(indicator in text.lower() for indicator in efficiency_indicators):
-            pain_points.append({
-                'type': 'process_inefficiency',
-                'severity': 'medium',
-                'description': 'Subtle indicators of process friction',
-                'evidence': 'Language suggests workarounds or extra steps needed',
-                'risk': 'Productivity impact could drive competitive evaluation'
-            })
-        
-        return pain_points
+        return evidence[:3]  # Return top 3 relevant sentences
+
+# Streamlit App
+st.title("🧠 Deep Feedback Intelligence Analyzer")
+st.markdown("### Transform any feedback into strategic insights")
+
+# Initialize analyzer
+analyzer = DeepFeedbackAnalyzer()
+
+# Input section
+st.header("📝 Input Your Feedback")
+
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    feedback_text = st.text_area(
+        "Feedback Text:",
+        height=150,
+        placeholder="Paste any client feedback, NPS comment, email, or review here..."
+    )
+
+with col2:
+    st.write("**Optional Context:**")
+    nps_score = st.number_input("NPS Score (0-10)", min_value=0, max_value=10, value=None)
     
-    def predict_nps_trajectory(self, current_feedback, historical_patterns=None):
-        """Predict NPS evolution based on current feedback patterns"""
-        current_nps = current_feedback.get('nps_score', 0)
-        aspect_analysis = self.absa.analyze_aspect_sentiment(
-            current_feedback.get('feedback_text', ''),
-            current_nps,
-            current_feedback.get('sub_ratings', {})
-        )
-        
-        # Risk factors for NPS decline
-        risk_factors = []
-        
-        # Check for aspects with risk flags
-        for aspect, data in aspect_analysis.items():
-            if data.get('risk_flag', False):
-                risk_factors.append(f"{aspect}: {data['sentiment_score']:.2f} (nuanced feedback)")
-        
-        # Simulate trajectory based on risk factors
-        if len(risk_factors) >= 2:
-            predicted_change = -1.5
-            trajectory = "Declining"
-            confidence = 0.75
-        elif len(risk_factors) == 1:
-            predicted_change = -0.5
-            trajectory = "Stable with risks"
-            confidence = 0.60
-        else:
-            predicted_change = 0.2
-            trajectory = "Stable/Growing"
-            confidence = 0.50
-        
-        return {
-            'current_nps': current_nps,
-            'predicted_change': predicted_change,
-            'trajectory': trajectory,
-            'confidence': confidence,
-            'risk_factors': risk_factors,
-            'timeframe': '3-6 months'
-        }
+    # Quick sample buttons
+    if st.button("💼 Corporate Sample"):
+        feedback_text = "The contract analysis features are game-changing for our M&A practice, but the integration with our document management system keeps failing. Usually works fine but sometimes we have to manually export files."
+        nps_score = 7
     
-    def generate_strategic_recommendations(self, feedback_analysis, pain_points, nps_prediction):
-        """Generate sophisticated, prioritized recommendations"""
-        recommendations = []
-        
-        # High-priority: Address workflow friction
-        if any(pp['type'] == 'workflow_friction' for pp in pain_points):
-            recommendations.append({
-                'priority': 'Critical',
-                'category': 'Product Enhancement',
-                'title': 'Intelligent Search Optimization',
-                'description': 'Implement AI-powered query expansion to reduce reliance on advanced search',
-                'rationale': 'User forced to use advanced search suggests basic search lacks semantic understanding',
-                'implementation': [
-                    'Deploy NLP-based query interpretation',
-                    'Add auto-suggestion for multi-keyword searches', 
-                    'Implement relevance scoring based on legal context'
-                ],
-                'estimated_impact': '+1.5 NPS points',
-                'timeline': '2-3 sprints',
-                'success_metrics': ['Reduced advanced search usage', 'Improved query success rate']
-            })
-        
-        # Medium-priority: Feature awareness
-        if any(pp['type'] == 'feature_underutilization' for pp in pain_points):
-            recommendations.append({
-                'priority': 'High',
-                'category': 'Customer Success',
-                'title': 'Personalized Onboarding Enhancement',
-                'description': 'Create usage-based onboarding to expose unknown features',
-                'rationale': 'Multiple "Don\'t know" responses indicate engagement gaps',
-                'implementation': [
-                    'Implement progressive feature disclosure',
-                    'Create personalized tutorial sequences',
-                    'Add contextual help based on user behavior'
-                ],
-                'estimated_impact': '+0.8 NPS points, 15% feature adoption increase',
-                'timeline': '1-2 sprints',
-                'success_metrics': ['Reduced "Don\'t know" responses', 'Increased feature engagement']
-            })
-        
-        # Process optimization
-        recommendations.append({
-            'priority': 'Medium',
-            'category': 'UX Enhancement',
-            'title': 'Search Result Intelligence',
-            'description': 'Improve case sequencing and relevance ranking',
-            'rationale': 'User mentions needing "higher level of sequence" for cases',
-            'implementation': [
-                'Implement legal precedent-aware ranking',
-                'Add jurisdiction and recency weighting',
-                'Create customizable result ordering'
-            ],
-            'estimated_impact': '+1.0 NPS points',
-            'timeline': '3-4 sprints',
-            'success_metrics': ['Improved result click-through rates', 'Reduced search refinements']
-        })
-        
-        return recommendations
+    if st.button("🔍 Search Issue Sample"):
+        feedback_text = "Love the new interface and it's very user-friendly. However, I often need to switch to advanced search to find specific case precedents, and sometimes the results aren't in the right order of relevance."
+        nps_score = 8
     
-    def generate_response_template(self, feedback_data, analysis_results):
-        """Generate personalized response template"""
-        nps = feedback_data.get('nps_score', 0)
-        name = feedback_data.get('customer_name', 'there')
+    if st.button("💰 Pricing Concern Sample"):
+        feedback_text = "Great tool overall and our team finds it easy to use. The AI features are impressive. But honestly, it's getting expensive for a firm our size and we're looking at alternatives."
+        nps_score = 6
+
+# Analysis button
+if st.button("🧠 Analyze Feedback", type="primary", use_container_width=True):
+    if feedback_text.strip():
+        # Run comprehensive analysis
+        results = analyzer.analyze_feedback(feedback_text, nps_score)
         
-        # Determine response tone based on analysis
-        if nps >= 8:
-            tone = "appreciative_proactive"
-        elif nps >= 6:
-            tone = "constructive_supportive"
-        else:
-            tone = "recovery_focused"
+        # Display results
+        st.markdown("---")
+        st.header("📊 Deep Analysis Results")
         
-        templates = {
-            'appreciative_proactive': f"""
-Dear {name},
-
-Thank you for your NPS score of {nps} and valuable feedback! We're thrilled you find our platform easy to use.
-
-I noticed your suggestion about search functionality and case sequencing - this is exactly the kind of insight that helps us improve. Our product team is actually working on enhanced multi-keyword search capabilities that should address this directly.
-
-Would you be interested in a brief demo of some advanced search tips that might help in the meantime? I'd also love to show you some features you might not be aware of yet.
-
-Best regards,
-Customer Success Team
-            """,
-            'constructive_supportive': f"""
-Dear {name},
-
-Thank you for taking the time to provide feedback. Your score of {nps} and comments help us understand how to serve you better.
-
-I'd like to schedule a brief call to discuss your experience and show you some features that might address your concerns.
-
-Best regards,
-Customer Success Team
-            """,
-            'recovery_focused': f"""
-Dear {name},
-
-Thank you for your candid feedback. I want to personally ensure we address your concerns and improve your experience.
-
-I'm scheduling a priority call to discuss your specific needs and how we can better support you.
-
-Best regards,
-Customer Success Manager
-            """
-        }
+        # Key metrics
+        col1, col2, col3, col4 = st.columns(4)
         
-        return templates[tone]
-
-def create_sample_feedback():
-    """Create the specific sample feedback for analysis"""
-    return {
-        'customer_name': 'Legal Professional',
-        'nps_score': 8,
-        'sub_experience_score': 8,
-        'feedback_text': 'easy to use, sometimes i need to go to advance search to be able to find multiple keywords and cases to be displayed in the higher level of sequence',
-        'sub_ratings': {
-            'ease_of_use': 'Very Satisfied',
-            'search_functionality': 'Satisfied', 
-            'content_quality': "Don't know",
-            'customer_support': 'Satisfied',
-            'pricing': "Don't know"
-        },
-        'continuation_intent': 'Definitely Will Continue Using',
-        'source': 'NPS Survey',
-        'date': datetime.now()
-    }
-
-# Main Application
-st.title("🧠 Legal Tech Intelligence Platform")
-st.markdown("### Deep Analysis Beyond Basic Sentiment")
-
-# Create analysis tabs
-tab1, tab2, tab3, tab4 = st.tabs(["🔍 Deep Analysis", "📊 Aspect Breakdown", "🎯 Strategic Insights", "📝 Response Generator"])
-
-# Initialize the engine
-engine = LegalInsightEngine()
-
-# Load sample data
-sample_feedback = create_sample_feedback()
-
-with tab1:
-    st.header("🔍 Comprehensive Feedback Analysis")
-    
-    # Display raw feedback
-    st.subheader("📋 Input Feedback")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.metric("NPS Score", f"{sample_feedback['nps_score']}/10")
-        st.metric("Sub-Experience", f"{sample_feedback['sub_experience_score']}/10")
-        st.write(f"**Continuation Intent:** {sample_feedback['continuation_intent']}")
-    
-    with col2:
-        st.write("**Feedback Text:**")
-        st.info(f"'{sample_feedback['feedback_text']}'")
-    
-    # Sub-ratings breakdown
-    st.subheader("📊 Structured Ratings")
-    ratings_df = pd.DataFrame(list(sample_feedback['sub_ratings'].items()), 
-                             columns=['Aspect', 'Rating'])
-    
-    # Color code the ratings
-    def color_rating(rating):
-        if rating == 'Very Satisfied':
-            return 'background-color: #d4edda'
-        elif rating == 'Satisfied':
-            return 'background-color: #fff3cd'
-        elif rating == "Don't know":
-            return 'background-color: #f8d7da'
-        else:
-            return ''
-    
-    st.dataframe(ratings_df.style.applymap(color_rating, subset=['Rating']), use_container_width=True)
-    
-    # Analysis trigger
-    if st.button("🧠 Run Deep Analysis", type="primary"):
-        # Perform comprehensive analysis
-        aspect_analysis = engine.absa.analyze_aspect_sentiment(
-            sample_feedback['feedback_text'],
-            sample_feedback['nps_score'],
-            sample_feedback['sub_ratings']
-        )
+        with col1:
+            aspect_count = len(results['aspect_analysis'])
+            st.metric("Aspects Analyzed", aspect_count)
         
-        pain_points = engine.extract_hidden_pain_points(sample_feedback)
-        nps_prediction = engine.predict_nps_trajectory(sample_feedback)
-        recommendations = engine.generate_strategic_recommendations(aspect_analysis, pain_points, nps_prediction)
+        with col2:
+            pain_point_count = len(results['pain_points'])
+            st.metric("Hidden Pain Points", pain_point_count)
         
-        # Store in session state
-        st.session_state['analysis_complete'] = True
-        st.session_state['aspect_analysis'] = aspect_analysis
-        st.session_state['pain_points'] = pain_points
-        st.session_state['nps_prediction'] = nps_prediction
-        st.session_state['recommendations'] = recommendations
-
-# Check if analysis is complete
-if st.session_state.get('analysis_complete', False):
-    
-    with tab2:
-        st.header("📊 Aspect-Based Sentiment Analysis")
+        with col3:
+            risk_count = len(results['risks'])
+            st.metric("Business Risks", risk_count)
         
-        aspect_analysis = st.session_state['aspect_analysis']
+        with col4:
+            emotion_count = len(results['emotions'])
+            st.metric("Emotions Detected", emotion_count)
         
-        if aspect_analysis:
-            # Create visualization
-            aspects = list(aspect_analysis.keys())
-            scores = [data['sentiment_score'] for data in aspect_analysis.values()]
-            confidences = [data['confidence'] for data in aspect_analysis.values()]
-            risk_flags = [data['risk_flag'] for data in aspect_analysis.values()]
+        # Aspect-based analysis
+        if results['aspect_analysis']:
+            st.subheader("🎯 Aspect-Based Sentiment Analysis")
             
-            # Create subplot figure
-            fig = go.Figure()
+            # Visualization
+            aspects = list(results['aspect_analysis'].keys())
+            scores = [data['sentiment_score'] for data in results['aspect_analysis'].values()]
+            risks = [data['hidden_risk'] for data in results['aspect_analysis'].values()]
             
-            # Add sentiment bars
-            colors = ['red' if risk else 'green' if score > 0 else 'orange' 
-                     for score, risk in zip(scores, risk_flags)]
+            colors = ['orange' if risk else 'green' if score > 0 else 'red' 
+                     for score, risk in zip(scores, risks)]
             
-            fig.add_trace(go.Bar(
+            fig = go.Figure(data=go.Bar(
                 x=[aspect.replace('_', ' ').title() for aspect in aspects],
                 y=scores,
                 marker_color=colors,
-                name='Sentiment Score',
-                text=[f"Confidence: {conf:.1%}" for conf in confidences],
+                text=[f"Risk: {'Yes' if risk else 'No'}" for risk in risks],
                 textposition='auto'
             ))
             
             fig.update_layout(
-                title="Aspect-Based Sentiment Analysis",
-                yaxis_title="Sentiment Score (-1 to +1)",
+                title="Aspect Sentiment Scores (Orange = Hidden Risk Detected)",
+                yaxis_title="Sentiment Score",
                 height=400
             )
             
             st.plotly_chart(fig, use_container_width=True)
             
             # Detailed breakdown
-            st.subheader("🔍 Detailed Aspect Analysis")
-            
-            for aspect, data in aspect_analysis.items():
-                with st.expander(f"{aspect.replace('_', ' ').title()} - Score: {data['sentiment_score']:.2f}"):
+            for aspect, data in results['aspect_analysis'].items():
+                with st.expander(f"🔍 {aspect.replace('_', ' ').title()} - Score: {data['sentiment_score']:.2f}"):
                     col1, col2 = st.columns(2)
                     
                     with col1:
                         st.write(f"**Sentiment Score:** {data['sentiment_score']:.2f}")
                         st.write(f"**Confidence:** {data['confidence']:.1%}")
-                        st.write(f"**Mentions:** {data['mentions']}")
-                        
-                        if data['risk_flag']:
-                            st.warning("⚠️ **Risk Flag:** Nuanced feedback detected")
+                        if data['hidden_risk']:
+                            st.warning("⚠️ **Hidden Risk Detected**")
                     
                     with col2:
-                        st.write("**Patterns Found:**")
-                        if data['patterns_found']['positive']:
-                            st.success(f"✅ Positive: {', '.join(data['patterns_found']['positive'])}")
-                        if data['patterns_found']['negative']:
-                            st.error(f"❌ Negative: {', '.join(data['patterns_found']['negative'])}")
-                        if data['patterns_found']['nuance']:
-                            st.warning(f"⚡ Nuance: {', '.join(data['patterns_found']['nuance'])}")
-    
-    with tab3:
-        st.header("🎯 Strategic Insights & Predictions")
-        
-        pain_points = st.session_state['pain_points']
-        nps_prediction = st.session_state['nps_prediction']
-        recommendations = st.session_state['recommendations']
+                        st.write("**Signal Analysis:**")
+                        st.write(f"• Positive signals: {data['signals']['positive']}")
+                        st.write(f"• Negative signals: {data['signals']['negative']}")
+                        st.write(f"• Friction signals: {data['signals']['friction']}")
+                    
+                    if data['evidence']:
+                        st.write("**Evidence from text:**")
+                        for evidence in data['evidence']:
+                            st.write(f"• *{evidence}*")
         
         # Hidden pain points
-        st.subheader("🕵️ Hidden Pain Points Analysis")
-        st.markdown("*Identifying non-obvious issues even in positive feedback*")
-        
-        if pain_points:
-            for i, pain_point in enumerate(pain_points):
-                severity_colors = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
+        if results['pain_points']:
+            st.subheader("🕵️ Hidden Pain Points Analysis")
+            
+            for pain_point in results['pain_points']:
+                severity_colors = {'high': '🔴', 'medium': '🟡', 'low': '🟢', 'low-medium': '🟡'}
                 
-                st.write(f"**{severity_colors[pain_point['severity']]} {pain_point['type'].replace('_', ' ').title()}**")
-                st.write(f"**Issue:** {pain_point['description']}")
-                st.write(f"**Evidence:** {pain_point['evidence']}")
-                st.write(f"**Risk:** {pain_point['risk']}")
+                st.write(f"**{severity_colors.get(pain_point['severity'], '🔵')} {pain_point['type'].replace('_', ' ').title()}**")
+                st.write(f"📄 **Issue:** {pain_point['description']}")
+                st.write(f"🔍 **Evidence:** {pain_point['evidence']}")
+                st.write(f"📈 **Business Impact:** {pain_point['impact']}")
+                st.write(f"⚠️ **Risk:** {pain_point['business_risk']}")
                 st.write("---")
-        else:
-            st.success("No hidden pain points detected in this feedback.")
         
-        # NPS Prediction
-        st.subheader("📈 NPS Trajectory Prediction")
+        # Business risks
+        if results['risks']:
+            st.subheader("⚠️ Business Risk Assessment")
+            
+            for risk in results['risks']:
+                risk_colors = {'high': '🔴', 'medium': '🟡', 'low': '🟢'}
+                
+                st.write(f"**{risk_colors[risk['level']]} {risk['type'].replace('_', ' ').title()} Risk**")
+                st.write(f"📊 **Level:** {risk['level'].title()}")
+                st.write(f"📝 **Description:** {risk['description']}")
+                st.write(f"🎯 **Indicators:** {risk['indicators']}")
+                st.write("---")
+        
+        # NPS trajectory
+        if results['trajectory']['prediction'] != 'Insufficient data':
+            st.subheader("📈 NPS Trajectory Prediction")
+            
+            trajectory = results['trajectory']
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                if trajectory['current_nps']:
+                    st.metric("Current NPS", trajectory['current_nps'])
+            
+            with col2:
+                change = trajectory['predicted_change']
+                delta_color = "normal" if change >= 0 else "inverse"
+                st.metric("Predicted Change", 
+                         f"{change:+.1f}", 
+                         delta=f"over {trajectory['timeframe']}",
+                         delta_color=delta_color)
+            
+            with col3:
+                st.metric("Confidence", f"{trajectory['confidence']:.1%}")
+            
+            st.write(f"**Current Segment:** {trajectory['current_segment'].title()}")
+            
+            # Factor breakdown
+            factors = trajectory['key_factors']
+            st.write("**Impact Factors:**")
+            st.write(f"• Risk factors: {factors['risk_impact']:+.1f}")
+            st.write(f"• Friction factors: {factors['friction_impact']:+.1f}")
+            st.write(f"• Positive factors: {factors['positive_impact']:+.1f}")
+        
+        # Strategic recommendations
+        if results['recommendations']:
+            st.subheader("💡 Strategic Recommendations")
+            
+            for i, rec in enumerate(results['recommendations']):
+                priority_colors = {'Critical': '🔴', 'High': '🟠', 'Medium': '🟡', 'Low': '🟢', 'Immediate': '🚨'}
+                
+                with st.expander(f"{priority_colors[rec['priority']]} {rec['priority']} - {rec['title']}"):
+                    st.write(f"**Category:** {rec['category']}")
+                    st.write(f"**Description:** {rec['description']}")
+                    st.write(f"**Rationale:** {rec['rationale']}")
+                    st.write(f"**Estimated Impact:** {rec['estimated_impact']}")
+                    st.write(f"**Implementation Effort:** {rec['implementation_effort']}")
+                    st.write(f"**Timeline:** {rec['timeline']}")
+        
+        # Emotions analysis
+        if results['emotions']:
+            st.subheader("😊 Emotional Analysis")
+            
+            emotion_data = []
+            for emotion, data in results['emotions'].items():
+                emotion_data.append({
+                    'Emotion': emotion.title(),
+                    'Intensity': f"{data['intensity']:.1%}",
+                    'Indicators': ', '.join(data['indicators_found'])
+                })
+            
+            emotion_df = pd.DataFrame(emotion_data)
+            st.dataframe(emotion_df, use_container_width=True)
+        
+        # Summary insights
+        st.subheader("🎯 Key Insights Summary")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.metric("Current NPS", nps_prediction['current_nps'])
+            st.markdown("**🔍 What We Found:**")
+            if results['pain_points']:
+                st.write(f"• {len(results['pain_points'])} hidden pain points")
+            if results['risks']:
+                st.write(f"• {len(results['risks'])} business risks identified")
+            
+            friction_aspects = sum(1 for data in results['aspect_analysis'].values() if data.get('hidden_risk'))
+            if friction_aspects:
+                st.write(f"• {friction_aspects} aspects with hidden friction")
         
         with col2:
-            delta_color = "normal" if nps_prediction['predicted_change'] >= 0 else "inverse"
-            st.metric("Predicted Change", 
-                     f"{nps_prediction['predicted_change']:+.1f}", 
-                     delta=f"{nps_prediction['timeframe']}",
-                     delta_color=delta_color)
+            st.markdown("**📈 Business Impact:**")
+            if results['trajectory']['prediction'] != 'Insufficient data':
+                change = results['trajectory']['predicted_change']
+                if change < -1:
+                    st.write("• High risk of NPS decline")
+                elif change < 0:
+                    st.write("• Moderate satisfaction risk")
+                else:
+                    st.write("• Stable/positive trajectory")
+            
+            if any('churn' in risk['type'] for risk in results['risks']):
+                st.write("• Customer retention at risk")
         
         with col3:
-            st.metric("Confidence", f"{nps_prediction['confidence']:.1%}")
-        
-        st.write(f"**Trajectory:** {nps_prediction['trajectory']}")
-        
-        if nps_prediction['risk_factors']:
-            st.warning("**Risk Factors Identified:**")
-            for factor in nps_prediction['risk_factors']:
-                st.write(f"• {factor}")
-        
-        # Strategic Recommendations
-        st.subheader("💡 Strategic Recommendations")
-        
-        for i, rec in enumerate(recommendations):
-            priority_colors = {'Critical': '🔴', 'High': '🟠', 'Medium': '🟡', 'Low': '🟢'}
+            st.markdown("**💡 Next Steps:**")
+            if results['recommendations']:
+                urgent_recs = [r for r in results['recommendations'] if r['priority'] in ['Critical', 'Immediate']]
+                if urgent_recs:
+                    st.write(f"• {len(urgent_recs)} urgent actions needed")
+                
+                st.write(f"• {len(results['recommendations'])} total recommendations")
             
-            with st.expander(f"{priority_colors[rec['priority']]} {rec['priority']} - {rec['title']}"):
-                st.write(f"**Category:** {rec['category']}")
-                st.write(f"**Description:** {rec['description']}")
-                st.write(f"**Rationale:** {rec['rationale']}")
-                
-                st.write("**Implementation Steps:**")
-                for step in rec['implementation']:
-                    st.write(f"• {step}")
-                
-                st.write(f"**Estimated Impact:** {rec['estimated_impact']}")
-                st.write(f"**Timeline:** {rec['timeline']}")
-                
-                st.write("**Success Metrics:**")
-                for metric in rec['success_metrics']:
-                    st.write(f"• {metric}")
-        
-        # What-if simulation
-        st.subheader("🎮 What-If Simulation")
-        
-        st.write("**Scenario: Implement top 2 recommendations**")
-        
-        simulated_impact = 1.5 + 0.8  # From top recommendations
-        new_nps = sample_feedback['nps_score'] + simulated_impact
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Current NPS", sample_feedback['nps_score'])
-        with col2:
-            st.metric("Projected NPS", f"{new_nps:.1f}", delta=f"+{simulated_impact:.1f}")
-        
-        if new_nps >= 9:
-            st.success("🎯 **Result:** Customer converts from Passive to Promoter!")
-            st.write("• Increased referral likelihood")
-            st.write("• Higher retention probability")
-            st.write("• Potential upsell opportunities")
+            st.write("• Follow up with customer")
 
-    with tab4:
-        st.header("📝 AI-Generated Response")
-        
-        # Generate response template
-        response_template = engine.generate_response_template(
-            sample_feedback, 
-            st.session_state.get('aspect_analysis', {})
-        )
-        
-        st.subheader("💌 Personalized Response Template")
-        st.text_area("Generated Response:", response_template, height=200)
-        
-        # Additional response options
-        st.subheader("📋 Follow-up Actions")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.write("**Immediate Actions:**")
-            st.write("✅ Send personalized response")
-            st.write("✅ Schedule feature demo")
-            st.write("✅ Create product feedback ticket")
-        
-        with col2:
-            st.write("**Follow-up Timeline:**")
-            st.write("📅 Day 1: Send response")
-            st.write("📅 Day 3: Demo call")
-            st.write("📅 Day 14: Check-in email")
-            st.write("📅 Day 30: Feature update notification")
-
-# Key insights summary
-if st.session_state.get('analysis_complete', False):
-    st.markdown("---")
-    st.header("🚀 Key Insights Summary")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        **🎯 This Analysis Uncovered:**
-        - Workflow friction despite high NPS
-        - Feature awareness gaps
-        - Search optimization opportunities
-        - Process efficiency improvements
-        """)
-    
-    with col2:
-        st.markdown("""
-        **📈 Predicted Impact:**
-        - +2.3 NPS points if recommendations implemented
-        - Conversion from Passive to Promoter
-        - Reduced churn risk
-        - Increased feature adoption
-        """)
-    
-    with col3:
-        st.markdown("""
-        **⚡ Why This Matters:**
-        - Prevents satisfaction erosion
-        - Identifies upsell opportunities  
-        - Provides competitive advantage
-        - Enables proactive customer success
-        """)
-
-else:
-    st.info("👆 Click 'Run Deep Analysis' in the first tab to see comprehensive insights")
+    else:
+        st.warning("⚠️ Please enter some feedback to analyze!")
 
 # Footer
 st.markdown("---")
-st.markdown("*This platform transforms obvious feedback into strategic intelligence, helping legal tech companies identify hidden opportunities and risks that traditional sentiment analysis misses.*")
+st.markdown("""
+### 🚀 **This Analysis Goes Beyond Basic Sentiment By:**
+- **🎯 Detecting hidden friction** even in positive feedback
+- **🔮 Predicting NPS trajectory** based on subtle patterns  
+- **💡 Generating strategic recommendations** with business impact
+- **⚠️ Identifying business risks** before they become critical
+- **🧠 Understanding emotions** and their implications for retention
+""")
