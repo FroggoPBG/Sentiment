@@ -1,353 +1,464 @@
 import streamlit as st
-import re
-from collections import Counter
 import pandas as pd
-from datetime import datetime
+import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
+from datetime import datetime, timedelta
+import re
+from collections import defaultdict, Counter
+import json
 
 # Page config
 st.set_page_config(
-    page_title="AI Client Feedback Analyzer",
-    page_icon="🤖",
+    page_title="Legal Feedback Intelligence Hub",
+    page_icon="⚖️",
     layout="wide"
 )
 
-# Enhanced word dictionaries and patterns
-emotion_patterns = {
-    'frustrated': ['frustrated', 'annoying', 'irritated', 'fed up', 'tired of', 'sick of'],
-    'disappointed': ['disappointed', 'expected more', 'let down', 'underwhelmed'],
-    'angry': ['angry', 'furious', 'outraged', 'mad', 'livid', 'hate'],
-    'confused': ['confused', 'unclear', 'don\'t understand', 'complicated', 'complex'],
-    'satisfied': ['satisfied', 'happy', 'pleased', 'content'],
-    'delighted': ['amazing', 'fantastic', 'love it', 'excellent', 'outstanding', 'brilliant'],
-    'neutral': ['okay', 'fine', 'average', 'standard', 'normal']
-}
-
-urgency_indicators = [
-    'urgent', 'immediately', 'asap', 'emergency', 'critical', 'can\'t wait',
-    'need now', 'right away', 'time sensitive', 'deadline'
-]
-
-pain_points = {
-    'pricing': ['expensive', 'costly', 'price', 'budget', 'afford', 'money', 'cost', 'fee'],
-    'support': ['support', 'help', 'assistance', 'response time', 'customer service'],
-    'usability': ['difficult', 'hard to use', 'complicated', 'confusing', 'user-friendly'],
-    'performance': ['slow', 'fast', 'speed', 'performance', 'lag', 'loading'],
-    'features': ['feature', 'functionality', 'capability', 'missing', 'need'],
-    'reliability': ['bug', 'error', 'crash', 'down', 'broken', 'working', 'stable']
-}
-
-positive_indicators = [
-    'recommend', 'love', 'great', 'excellent', 'amazing', 'fantastic',
-    'perfect', 'impressed', 'exceeded expectations', 'outstanding'
-]
-
-def extract_emotions(text):
-    text_lower = text.lower()
-    detected_emotions = []
-    
-    for emotion, patterns in emotion_patterns.items():
-        for pattern in patterns:
-            if pattern in text_lower:
-                detected_emotions.append(emotion)
-                break
-    
-    return list(set(detected_emotions))
-
-def detect_urgency(text):
-    text_lower = text.lower()
-    urgent_words = [word for word in urgency_indicators if word in text_lower]
-    urgency_score = len(urgent_words)
-    
-    if urgency_score >= 2:
-        return "High", urgent_words
-    elif urgency_score == 1:
-        return "Medium", urgent_words
-    else:
-        return "Low", []
-
-def identify_pain_points(text):
-    text_lower = text.lower()
-    identified_issues = {}
-    
-    for category, keywords in pain_points.items():
-        score = sum(1 for keyword in keywords if keyword in text_lower)
-        if score > 0:
-            identified_issues[category] = score
-    
-    return identified_issues
-
-def extract_keywords(text):
-    # Simple keyword extraction (in real implementation, you'd use more sophisticated NLP)
-    words = re.findall(r'\b\w+\b', text.lower())
-    # Filter out common words
-    stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them'}
-    keywords = [word for word in words if len(word) > 3 and word not in stop_words]
-    return Counter(keywords).most_common(10)
-
-def calculate_nps_prediction(text):
-    # Simple NPS prediction based on sentiment indicators
-    text_lower = text.lower()
-    
-    promoter_signals = sum(1 for word in positive_indicators if word in text_lower)
-    detractor_signals = sum(1 for category, keywords in pain_points.items() 
-                          for keyword in keywords if keyword in text_lower)
-    
-    if promoter_signals >= 2:
-        return "Promoter (9-10)", "🟢"
-    elif detractor_signals >= 2:
-        return "Detractor (0-6)", "🔴"
-    else:
-        return "Passive (7-8)", "🟡"
-
-def generate_response_suggestions(emotions, pain_points_found, urgency_level):
-    suggestions = []
-    
-    # Urgency-based suggestions
-    if urgency_level == "High":
-        suggestions.append("🚨 **PRIORITY RESPONSE**: Contact within 2 hours")
-    elif urgency_level == "Medium":
-        suggestions.append("⚡ **QUICK RESPONSE**: Contact within 24 hours")
-    
-    # Emotion-based suggestions
-    if 'frustrated' in emotions or 'angry' in emotions:
-        suggestions.append("🤝 **Empathy First**: Acknowledge their frustration and apologize")
-        suggestions.append("📞 **Personal Touch**: Consider a phone call instead of email")
-    
-    if 'confused' in emotions:
-        suggestions.append("📋 **Clear Explanation**: Provide step-by-step guidance")
-        suggestions.append("🎥 **Visual Aid**: Consider sending a tutorial video")
-    
-    if 'disappointed' in emotions:
-        suggestions.append("🎯 **Set Expectations**: Clarify what can be improved")
-        suggestions.append("🎁 **Recovery Gesture**: Consider a goodwill gesture")
-    
-    # Pain point suggestions
-    if 'pricing' in pain_points_found:
-        suggestions.append("💰 **Value Discussion**: Schedule a call to discuss ROI and value")
-    
-    if 'support' in pain_points_found:
-        suggestions.append("🆘 **Support Escalation**: Route to senior support representative")
-    
-    if 'usability' in pain_points_found:
-        suggestions.append("👨‍🏫 **Training Offer**: Provide additional training resources")
-    
-    return suggestions
-
-def comprehensive_analysis(text):
-    emotions = extract_emotions(text)
-    urgency_level, urgent_words = detect_urgency(text)
-    pain_points_found = identify_pain_points(text)
-    keywords = extract_keywords(text)
-    nps_prediction, nps_icon = calculate_nps_prediction(text)
-    response_suggestions = generate_response_suggestions(emotions, pain_points_found, urgency_level)
-    
-    return {
-        'emotions': emotions,
-        'urgency_level': urgency_level,
-        'urgent_words': urgent_words,
-        'pain_points': pain_points_found,
-        'keywords': keywords,
-        'nps_prediction': nps_prediction,
-        'nps_icon': nps_icon,
-        'response_suggestions': response_suggestions
+# Legal-specific aspect categories
+LEGAL_ASPECTS = {
+    'search_accuracy': {
+        'keywords': ['search', 'find', 'results', 'relevant', 'accuracy', 'precision', 'case law', 'precedent', 'citations'],
+        'phrases': ['can\'t find', 'irrelevant results', 'outdated cases', 'missing precedents', 'search fails']
+    },
+    'ai_features': {
+        'keywords': ['ai', 'artificial intelligence', 'summarization', 'analysis', 'prediction', 'automation'],
+        'phrases': ['ai summary', 'case analysis', 'predictive analytics', 'automated research']
+    },
+    'compliance': {
+        'keywords': ['compliance', 'gdpr', 'privacy', 'security', 'audit', 'regulatory', 'ethics'],
+        'phrases': ['data privacy', 'compliance issues', 'security concerns', 'ethical ai']
+    },
+    'workflow_integration': {
+        'keywords': ['integration', 'workflow', 'sync', 'export', 'api', 'compatibility'],
+        'phrases': ['doesn\'t sync', 'workflow issues', 'integration problems', 'export failed']
+    },
+    'ui_navigation': {
+        'keywords': ['interface', 'navigation', 'ui', 'ux', 'usability', 'design', 'layout'],
+        'phrases': ['hard to navigate', 'confusing interface', 'user-friendly', 'intuitive design']
+    },
+    'pricing_value': {
+        'keywords': ['price', 'cost', 'expensive', 'value', 'roi', 'budget', 'subscription'],
+        'phrases': ['too expensive', 'good value', 'cost-effective', 'pricing tier']
+    },
+    'performance': {
+        'keywords': ['speed', 'slow', 'fast', 'performance', 'loading', 'response time', 'latency'],
+        'phrases': ['loads slowly', 'fast response', 'system lag', 'quick results']
+    },
+    'support_quality': {
+        'keywords': ['support', 'help', 'response', 'customer service', 'training', 'documentation'],
+        'phrases': ['poor support', 'helpful team', 'slow response', 'great documentation']
     }
+}
+
+# Firm type classifications
+FIRM_TYPES = {
+    'solo': ['solo', 'individual', 'freelance', 'independent'],
+    'small_firm': ['small firm', 'boutique', '2-10 attorneys', 'small practice'],
+    'mid_size': ['mid-size', 'medium', '10-50 lawyers', 'regional'],
+    'big_law': ['big law', 'large firm', 'am law', '100+', 'major firm', 'global'],
+    'in_house': ['in-house', 'corporate', 'company legal', 'internal'],
+    'government': ['government', 'public sector', 'state', 'federal', 'municipal']
+}
+
+# Legal practice areas
+PRACTICE_AREAS = {
+    'litigation': ['litigation', 'trial', 'court', 'dispute', 'lawsuit'],
+    'corporate': ['corporate', 'm&a', 'transaction', 'contract', 'commercial'],
+    'ip': ['intellectual property', 'patent', 'trademark', 'copyright', 'ip'],
+    'employment': ['employment', 'labor', 'hr', 'workplace'],
+    'real_estate': ['real estate', 'property', 'land', 'construction'],
+    'criminal': ['criminal', 'defense', 'prosecution', 'dui'],
+    'family': ['family', 'divorce', 'custody', 'adoption'],
+    'tax': ['tax', 'irs', 'revenue', 'taxation']
+}
+
+class LegalFeedbackAnalyzer:
+    def __init__(self):
+        self.sentiment_scores = {}
+        self.aspect_sentiments = {}
+        
+    def extract_legal_aspects(self, text):
+        """Extract sentiment for each legal-specific aspect"""
+        text_lower = text.lower()
+        aspect_sentiments = {}
+        
+        for aspect, data in LEGAL_ASPECTS.items():
+            # Check for keywords and phrases
+            keyword_matches = sum(1 for keyword in data['keywords'] if keyword in text_lower)
+            phrase_matches = sum(1 for phrase in data['phrases'] if phrase in text_lower)
+            
+            if keyword_matches > 0 or phrase_matches > 0:
+                # Simple sentiment scoring for the aspect
+                positive_words = ['good', 'great', 'excellent', 'love', 'perfect', 'amazing', 'helpful']
+                negative_words = ['bad', 'terrible', 'awful', 'hate', 'poor', 'slow', 'confusing', 'expensive']
+                
+                # Context window around aspect mentions
+                sentences = text_lower.split('.')
+                relevant_sentences = [s for s in sentences if any(kw in s for kw in data['keywords']) or any(ph in s for ph in data['phrases'])]
+                
+                if relevant_sentences:
+                    pos_score = sum(1 for sentence in relevant_sentences for word in positive_words if word in sentence)
+                    neg_score = sum(1 for sentence in relevant_sentences for word in negative_words if word in sentence)
+                    
+                    if pos_score > neg_score:
+                        sentiment = 'positive'
+                        score = (pos_score - neg_score) / len(relevant_sentences)
+                    elif neg_score > pos_score:
+                        sentiment = 'negative'
+                        score = -(neg_score - pos_score) / len(relevant_sentences)
+                    else:
+                        sentiment = 'neutral'
+                        score = 0
+                    
+                    aspect_sentiments[aspect] = {
+                        'sentiment': sentiment,
+                        'score': score,
+                        'mentions': keyword_matches + phrase_matches,
+                        'context': relevant_sentences[:2]  # First 2 relevant sentences
+                    }
+        
+        return aspect_sentiments
+    
+    def classify_firm_type(self, text):
+        """Classify the type of law firm based on feedback content"""
+        text_lower = text.lower()
+        
+        for firm_type, indicators in FIRM_TYPES.items():
+            if any(indicator in text_lower for indicator in indicators):
+                return firm_type
+        
+        return 'unknown'
+    
+    def identify_practice_area(self, text):
+        """Identify practice area from feedback"""
+        text_lower = text.lower()
+        areas = []
+        
+        for area, keywords in PRACTICE_AREAS.items():
+            if any(keyword in text_lower for keyword in keywords):
+                areas.append(area)
+        
+        return areas if areas else ['general']
+    
+    def predict_nps_trend(self, historical_data):
+        """Predict NPS trend based on aspect sentiment changes"""
+        # Simplified trend prediction
+        recent_scores = historical_data[-30:]  # Last 30 feedback items
+        older_scores = historical_data[-60:-30] if len(historical_data) >= 60 else []
+        
+        if not older_scores:
+            return "Insufficient data for trend prediction"
+        
+        recent_avg = np.mean([item['compound_score'] for item in recent_scores])
+        older_avg = np.mean([item['compound_score'] for item in older_scores])
+        
+        trend = recent_avg - older_avg
+        
+        if trend > 0.1:
+            return f"📈 Positive trend: +{trend:.2f} score improvement"
+        elif trend < -0.1:
+            return f"📉 Negative trend: {trend:.2f} score decline"
+        else:
+            return f"➡️ Stable trend: {trend:.2f} score change"
+    
+    def generate_recommendations(self, aspect_sentiments, firm_type, practice_areas):
+        """Generate AI-powered recommendations"""
+        recommendations = []
+        
+        # Aspect-based recommendations
+        negative_aspects = [aspect for aspect, data in aspect_sentiments.items() 
+                          if data['sentiment'] == 'negative']
+        
+        if 'search_accuracy' in negative_aspects:
+            recommendations.append({
+                'priority': 'High',
+                'category': 'Product',
+                'action': 'Improve search algorithm relevance',
+                'rationale': 'Search accuracy issues directly impact user productivity',
+                'estimated_impact': '+2-3 NPS points'
+            })
+        
+        if 'compliance' in negative_aspects:
+            recommendations.append({
+                'priority': 'Critical',
+                'category': 'Legal/Security',
+                'action': 'Review compliance documentation and security measures',
+                'rationale': 'Compliance concerns can lead to client churn in legal industry',
+                'estimated_impact': 'Risk mitigation'
+            })
+        
+        # Firm-type specific recommendations
+        if firm_type == 'solo' and 'pricing_value' in negative_aspects:
+            recommendations.append({
+                'priority': 'Medium',
+                'category': 'Commercial',
+                'action': 'Consider solo practitioner pricing tier',
+                'rationale': 'Solo practitioners have different budget constraints',
+                'estimated_impact': '+1-2 NPS points for solo segment'
+            })
+        
+        return recommendations
+
+def create_sample_data():
+    """Create sample historical data for demonstration"""
+    dates = [datetime.now() - timedelta(days=x) for x in range(90, 0, -1)]
+    
+    sample_feedback = [
+        {
+            'date': dates[0],
+            'feedback': "The AI case summarization is fantastic, but the search results for precedent cases are often outdated. Our litigation team struggles with relevance.",
+            'source': 'NPS Survey',
+            'firm_type': 'mid_size',
+            'practice_area': ['litigation'],
+            'compound_score': -0.2
+        },
+        {
+            'date': dates[10],
+            'feedback': "Love the new interface! Much more intuitive for our corporate team. The contract analysis features are game-changing.",
+            'source': 'Email',
+            'firm_type': 'big_law',
+            'practice_area': ['corporate'],
+            'compound_score': 0.7
+        },
+        {
+            'date': dates[20],
+            'feedback': "Pricing is getting expensive for a solo practice. The features are good but I need better value for money.",
+            'source': 'Support Ticket',
+            'firm_type': 'solo',
+            'practice_area': ['general'],
+            'compound_score': -0.3
+        },
+        {
+            'date': dates[30],
+            'feedback': "Integration with our case management system failed multiple times. Very frustrating for workflow.",
+            'source': 'Email',
+            'firm_type': 'small_firm',
+            'practice_area': ['general'],
+            'compound_score': -0.5
+        }
+    ]
+    
+    return sample_feedback
 
 # Main App
-st.title("🤖 AI Client Feedback Analyzer")
-st.markdown("### Transform client feedback into actionable insights")
+st.title("⚖️ Legal Feedback Intelligence Hub")
+st.markdown("### Transform client feedback into strategic legal tech insights")
 
-# Sidebar
-with st.sidebar:
-    st.header("🎯 Analysis Features")
-    st.write("✅ Emotion Detection")
-    st.write("✅ Urgency Assessment") 
-    st.write("✅ Pain Point Identification")
-    st.write("✅ NPS Prediction")
-    st.write("✅ Response Recommendations")
-    st.write("✅ Keyword Extraction")
+# Initialize analyzer
+analyzer = LegalFeedbackAnalyzer()
+
+# Sidebar navigation
+st.sidebar.title("🎯 Intelligence Dashboard")
+analysis_mode = st.sidebar.selectbox(
+    "Select Analysis Mode:",
+    ["Single Feedback Analysis", "Batch Processing", "Trend Analytics", "Predictive Insights"]
+)
+
+if analysis_mode == "Single Feedback Analysis":
+    st.header("📋 Advanced Feedback Analysis")
     
-    st.markdown("---")
-    st.header("📊 Use Cases")
-    st.write("• NPS Survey Analysis")
-    st.write("• Email Feedback Review")
-    st.write("• Support Ticket Triage")
-    st.write("• Client Communication Strategy")
-
-# Input section
-st.header("📝 Client Feedback Input")
-
-# Tabs for different input methods
-tab1, tab2, tab3 = st.tabs(["Single Feedback", "Batch Analysis", "Sample Data"])
-
-with tab1:
-    feedback_text = st.text_area(
-        "Enter client feedback:",
-        height=150,
-        placeholder="Paste your client's feedback, NPS comment, or email here..."
-    )
+    # Input section
+    col1, col2 = st.columns([2, 1])
     
-    client_info = st.columns(3)
-    with client_info[0]:
-        client_name = st.text_input("Client Name (optional)", placeholder="John Doe")
-    with client_info[1]:
-        feedback_source = st.selectbox("Source", ["NPS Survey", "Email", "Support Ticket", "Phone Call", "Other"])
-    with client_info[2]:
-        feedback_date = st.date_input("Date", datetime.now())
-
-with tab2:
-    st.write("📋 **Upload CSV with feedback data**")
-    uploaded_file = st.file_uploader("Choose CSV file", type="csv")
-    if uploaded_file:
-        df = pd.read_csv(uploaded_file)
-        st.write("Preview of uploaded data:")
-        st.dataframe(df.head())
-
-with tab3:
-    sample_feedbacks = {
-        "Frustrated Customer": "I'm really frustrated with the slow response time from your support team. I've been waiting for 3 days for a simple question and this is urgent for my business. The software is also quite expensive compared to competitors.",
-        "Happy Customer": "Amazing product! The team was incredibly helpful and the features exceeded my expectations. I would definitely recommend this to other businesses.",
-        "Confused Customer": "I don't understand how to use the new dashboard. It's quite complicated and I need help setting it up. The old version was much clearer.",
-        "Disappointed Customer": "Expected more from this service. The pricing is high but the performance is slow and we've encountered several bugs. Pretty disappointed overall."
-    }
+    with col1:
+        feedback_text = st.text_area(
+            "Client Feedback:",
+            height=150,
+            placeholder="Enter NPS comment, email, or support ticket content..."
+        )
     
-    selected_sample = st.selectbox("Choose a sample feedback:", list(sample_feedbacks.keys()))
-    if st.button("Load Sample"):
-        feedback_text = sample_feedbacks[selected_sample]
-
-# Analysis button
-if st.button("🔍 Analyze Feedback", type="primary", use_container_width=True):
-    if feedback_text.strip():
-        analysis = comprehensive_analysis(feedback_text)
+    with col2:
+        st.write("**Context Information:**")
+        source = st.selectbox("Source", ["NPS Survey", "Email", "Support Ticket", "Phone Call"])
         
-        # Results section
-        st.markdown("---")
-        st.header("📊 AI Analysis Results")
+        # Sample feedback buttons
+        if st.button("🏢 Corporate Law Firm"):
+            feedback_text = "The AI contract analysis is revolutionary for our M&A practice, but the integration with our document management system keeps failing. Our associates love the research capabilities though."
         
-        # Top-level metrics
-        col1, col2, col3, col4 = st.columns(4)
+        if st.button("👤 Solo Practitioner"):
+            feedback_text = "Great tool for case research but honestly too expensive for a solo practice like mine. The search accuracy for local cases could be better too."
         
-        with col1:
-            st.metric("🎯 NPS Prediction", 
-                     analysis['nps_prediction'], 
-                     delta=None)
-        
-        with col2:
-            urgency_color = {"High": "🔴", "Medium": "🟡", "Low": "🟢"}
-            st.metric("⚡ Urgency Level", 
-                     f"{urgency_color[analysis['urgency_level']]} {analysis['urgency_level']}")
-        
-        with col3:
-            st.metric("😊 Emotions Detected", 
-                     len(analysis['emotions']))
-        
-        with col4:
-            st.metric("⚠️ Pain Points", 
-                     len(analysis['pain_points']))
-        
-        # Detailed analysis
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("🎭 Emotional Analysis")
-            if analysis['emotions']:
-                for emotion in analysis['emotions']:
-                    emotion_colors = {
-                        'frustrated': '🔴', 'angry': '🔴', 'disappointed': '🟠',
-                        'confused': '🟡', 'satisfied': '🟢', 'delighted': '💚', 'neutral': '⚪'
-                    }
-                    st.write(f"{emotion_colors.get(emotion, '🔵')} **{emotion.title()}**")
-            else:
-                st.write("No strong emotions detected")
+        if st.button("⚖️ Litigation Focus"):
+            feedback_text = "The precedent search is usually good but we found several outdated citations in a recent case. The AI summarization of depositions is fantastic though."
+    
+    if st.button("🔍 Analyze Feedback", type="primary"):
+        if feedback_text.strip():
+            # Perform analysis
+            aspect_sentiments = analyzer.extract_legal_aspects(feedback_text)
+            firm_type = analyzer.classify_firm_type(feedback_text)
+            practice_areas = analyzer.identify_practice_area(feedback_text)
+            recommendations = analyzer.generate_recommendations(aspect_sentiments, firm_type, practice_areas)
             
-            st.subheader("⚠️ Pain Points Identified")
-            if analysis['pain_points']:
-                pain_point_df = pd.DataFrame(
-                    list(analysis['pain_points'].items()), 
-                    columns=['Category', 'Mentions']
+            # Display results
+            st.markdown("---")
+            st.header("🧠 AI Analysis Results")
+            
+            # Key insights cards
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("🏢 Firm Type", firm_type.replace('_', ' ').title())
+            
+            with col2:
+                st.metric("⚖️ Practice Areas", len(practice_areas))
+            
+            with col3:
+                st.metric("🎯 Aspects Mentioned", len(aspect_sentiments))
+            
+            with col4:
+                negative_aspects = sum(1 for data in aspect_sentiments.values() if data['sentiment'] == 'negative')
+                st.metric("⚠️ Pain Points", negative_aspects)
+            
+            # Aspect-based sentiment analysis
+            if aspect_sentiments:
+                st.subheader("📊 Aspect-Based Sentiment Analysis")
+                
+                # Create visualization
+                aspects = list(aspect_sentiments.keys())
+                scores = [data['score'] for data in aspect_sentiments.values()]
+                sentiments = [data['sentiment'] for data in aspect_sentiments.values()]
+                
+                # Color mapping
+                colors = ['red' if s == 'negative' else 'green' if s == 'positive' else 'gray' for s in sentiments]
+                
+                fig = go.Figure(data=go.Bar(
+                    x=[aspect.replace('_', ' ').title() for aspect in aspects],
+                    y=scores,
+                    marker_color=colors,
+                    text=[f"{data['mentions']} mentions" for data in aspect_sentiments.values()],
+                    textposition='auto'
+                ))
+                
+                fig.update_layout(
+                    title="Legal Aspect Sentiment Scores",
+                    yaxis_title="Sentiment Score",
+                    height=400
                 )
-                fig = px.bar(pain_point_df, x='Category', y='Mentions', 
-                           title="Pain Point Categories")
+                
                 st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.write("No major pain points detected")
-        
-        with col2:
-            st.subheader("🔑 Key Topics")
-            if analysis['keywords']:
-                keywords_df = pd.DataFrame(analysis['keywords'], columns=['Keyword', 'Frequency'])
-                st.dataframe(keywords_df, use_container_width=True)
+                
+                # Detailed aspect breakdown
+                st.subheader("🔍 Aspect Details")
+                for aspect, data in aspect_sentiments.items():
+                    with st.expander(f"{aspect.replace('_', ' ').title()} - {data['sentiment'].title()}"):
+                        st.write(f"**Sentiment Score:** {data['score']:.2f}")
+                        st.write(f"**Mentions:** {data['mentions']}")
+                        st.write("**Context:**")
+                        for sentence in data['context']:
+                            st.write(f"• {sentence.strip()}")
             
-            if analysis['urgent_words']:
-                st.subheader("🚨 Urgency Indicators")
-                for word in analysis['urgent_words']:
-                    st.write(f"• {word}")
-        
-        # Response recommendations
-        st.subheader("💡 AI-Powered Response Strategy")
-        if analysis['response_suggestions']:
-            for suggestion in analysis['response_suggestions']:
-                st.write(suggestion)
+            # Recommendations
+            if recommendations:
+                st.subheader("💡 AI-Generated Recommendations")
+                
+                for i, rec in enumerate(recommendations):
+                    priority_colors = {'Critical': '🔴', 'High': '🟠', 'Medium': '🟡', 'Low': '🟢'}
+                    
+                    st.write(f"**{priority_colors[rec['priority']]} {rec['priority']} Priority - {rec['category']}**")
+                    st.write(f"**Action:** {rec['action']}")
+                    st.write(f"**Rationale:** {rec['rationale']}")
+                    st.write(f"**Estimated Impact:** {rec['estimated_impact']}")
+                    st.write("---")
+            
+            # Practice area insights
+            if practice_areas:
+                st.subheader("⚖️ Practice Area Context")
+                st.write(f"**Identified Areas:** {', '.join([area.replace('_', ' ').title() for area in practice_areas])}")
+                
+                if 'litigation' in practice_areas and 'search_accuracy' in aspect_sentiments:
+                    st.info("💡 **Litigation Insight:** Search accuracy issues are critical for litigation practices where precedent research is essential.")
+                
+                if 'corporate' in practice_areas and 'workflow_integration' in aspect_sentiments:
+                    st.info("💡 **Corporate Insight:** Workflow integration is key for corporate practices handling high-volume transactions.")
+
+elif analysis_mode == "Trend Analytics":
+    st.header("📈 Legal Tech Trend Analytics")
+    
+    # Sample data for demonstration
+    sample_data = create_sample_data()
+    
+    # Time series analysis
+    df = pd.DataFrame(sample_data)
+    
+    # Trend visualization
+    fig = px.line(df, x='date', y='compound_score', 
+                  title='Client Sentiment Trend Over Time',
+                  color='firm_type')
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Firm type breakdown
+    firm_sentiment = df.groupby('firm_type')['compound_score'].mean().reset_index()
+    
+    fig2 = px.bar(firm_sentiment, x='firm_type', y='compound_score',
+                  title='Average Sentiment by Firm Type')
+    st.plotly_chart(fig2, use_container_width=True)
+    
+    # Predictive insights
+    st.subheader("🔮 Predictive Analytics")
+    trend_prediction = analyzer.predict_nps_trend(sample_data)
+    st.info(f"**Trend Prediction:** {trend_prediction}")
+
+elif analysis_mode == "Predictive Insights":
+    st.header("🎯 Predictive Legal Tech Insights")
+    
+    st.subheader("🚨 Early Warning System")
+    
+    # Simulated alerts
+    alerts = [
+        {
+            'type': 'Critical',
+            'message': 'Compliance sentiment dropping 25% among Big Law firms',
+            'action': 'Review security documentation and schedule client calls',
+            'impact': 'Potential 15% NPS drop if unaddressed'
+        },
+        {
+            'type': 'Opportunity',
+            'message': 'AI features receiving 90% positive sentiment',
+            'action': 'Expand AI marketing to similar firm segments',
+            'impact': 'Potential 10% market share increase'
+        }
+    ]
+    
+    for alert in alerts:
+        if alert['type'] == 'Critical':
+            st.error(f"🚨 **{alert['type']}:** {alert['message']}")
         else:
-            st.write("🟢 **Standard Response**: This feedback can be handled with normal priority")
+            st.success(f"💡 **{alert['type']}:** {alert['message']}")
         
-        # Action items
-        st.subheader("📋 Recommended Actions")
-        
-        action_cols = st.columns(3)
-        
-        with action_cols[0]:
-            st.write("**Immediate Actions:**")
-            if analysis['urgency_level'] == "High":
-                st.write("🚨 Escalate to senior team")
-                st.write("📞 Schedule urgent call")
-            else:
-                st.write("📧 Send personalized response")
-                st.write("📅 Follow up in 2-3 days")
-        
-        with action_cols[1]:
-            st.write("**Medium-term:**")
-            if 'usability' in analysis['pain_points']:
-                st.write("🎓 Provide training session")
-            if 'support' in analysis['pain_points']:
-                st.write("🔄 Review support processes")
-            st.write("📊 Add to feedback database")
-        
-        with action_cols[2]:
-            st.write("**Long-term:**")
-            if analysis['pain_points']:
-                st.write("🛠️ Product improvement consideration")
-            st.write("📈 Track satisfaction trends")
-            st.write("🎯 Refine communication strategy")
-        
-        # Export options
-        st.markdown("---")
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("📄 Generate Report"):
-                st.success("Report generated! (In real implementation, this would create a PDF)")
-        
-        with col2:
-            if st.button("📧 Draft Response"):
-                st.success("Response drafted! (In real implementation, this would open email template)")
-        
-        with col3:
-            if st.button("📊 Add to Dashboard"):
-                st.success("Added to analytics dashboard!")
-        
-    else:
-        st.warning("⚠️ Please enter some feedback to analyze!")
+        st.write(f"**Recommended Action:** {alert['action']}")
+        st.write(f"**Projected Impact:** {alert['impact']}")
+        st.write("---")
 
 # Footer
 st.markdown("---")
-st.markdown("### 🚀 How This AI Tool Helps Your Business:")
-st.markdown("""
-- **⚡ Instant Triage**: Automatically prioritize urgent feedback
-- **🎯 Personalized Responses**: Tailor communication based on emotions and pain points  
-- **📊 Data-Driven Insights**: Track trends and patterns in client feedback
-- **🤖 Consistent Analysis**: Remove human bias and ensure every feedback gets proper attention
-- **⏰ Time Savings**: Reduce manual review time by 80%
-- **📈 Improved NPS**: Proactive issue resolution leads to higher satisfaction
-""")
+st.markdown("### 🚀 Intelligence Hub Capabilities:")
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.markdown("""
+    **🎯 Aspect-Based Analysis**
+    - Search accuracy sentiment
+    - AI feature perception
+    - Compliance concerns
+    - Workflow integration issues
+    """)
+
+with col2:
+    st.markdown("""
+    **📊 Legal-Specific Insights**
+    - Firm type classification
+    - Practice area analysis
+    - Industry benchmarking
+    - Competitive positioning
+    """)
+
+with col3:
+    st.markdown("""
+    **🔮 Predictive Intelligence**
+    - NPS trend forecasting
+    - Churn risk assessment
+    - Feature demand prediction
+    - Market opportunity identification
+    """)
