@@ -358,7 +358,10 @@ def display_individual_results(analyzer, results):
                 <span class="theme-tag">{theme['theme'].replace('_', ' ')} ({confidence}%)</span>
                 """, unsafe_allow_html=True)
             
-            st.write(f"**Evidence:** {', '.join([f'\"{t[\"evidence\"]}\"' for t in results['theme_analysis']['themes']])}")
+            # Fixed the problematic line
+            evidence_list = [theme['evidence'] for theme in results['theme_analysis']['themes']]
+            evidence_text = ', '.join([f'"{evidence}"' for evidence in evidence_list])
+            st.write(f"**Evidence:** {evidence_text}")
             st.write(f"**Tags:** {results['theme_analysis']['tags']}")
         
         with col2:
