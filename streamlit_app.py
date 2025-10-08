@@ -3,8 +3,6 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
 import re
 import io
 from collections import Counter
@@ -75,20 +73,6 @@ class StrategicFeedbackAnalyzer:
         self.emotions = ['satisfied', 'frustrated', 'confused', 'excited', 'concerned', 'appreciative', 'disappointed']
         self.legal_terms = ['ordinances', 'regulations', 'compliance', 'documentation', 'annotations', 'legal research', 'statutes', 'provisions']
         self.knowledge_gaps = ["don't know if it can", "haven't tried that feature", "wasn't aware of", "not sure how to", "couldn't find"]
-        
-        # Regression model for NPS prediction
-        self.scaler = StandardScaler()
-        self.nps_model = LinearRegression()
-        self._train_mock_model()
-    
-    def _train_mock_model(self):
-        # Mock training data for NPS prediction
-        X = np.random.rand(100, 3)  # friction, risk, feature scores
-        y = 5 + X[:, 0] * -2 + X[:, 1] * -1.5 + X[:, 2] * 2 + np.random.normal(0, 0.5, 100)
-        y = np.clip(y, 0, 10)
-        
-        X_scaled = self.scaler.fit_transform(X)
-        self.nps_model.fit(X_scaled, y)
     
     def extract_themes(self, text, nps_score=None):
         """Extract themes with confidence scores and evidence"""
@@ -144,7 +128,7 @@ class StrategicFeedbackAnalyzer:
         emotion_patterns = {
             'satisfied': ['love', 'great', 'happy', 'pleased', 'satisfied'],
             'frustrated': ['frustrated', 'annoying', 'irritating', 'but', 'however'],
-            'confused': ['confused', 'unclear', 'don\'t understand', 'not sure'],
+            'confused': ['confused', 'unclear', "don't understand", 'not sure'],
             'excited': ['excited', 'amazing', 'fantastic', 'incredible'],
             'concerned': ['worried', 'concerned', 'afraid', 'nervous'],
             'appreciative': ['thank', 'appreciate', 'grateful', 'thanks'],
@@ -221,19 +205,19 @@ class StrategicFeedbackAnalyzer:
         return insights
     
     def simulate_nps_change(self, current_nps, friction_change, risk_change, feature_change):
-        """Simulate NPS changes based on improvements"""
-        # Convert changes to model input
-        changes = np.array([[friction_change, risk_change, feature_change]])
-        changes_scaled = self.scaler.transform(changes)
+        """Simulate NPS changes based on improvements using simple linear model"""
+        # Simple impact calculation without sklearn
+        friction_impact = friction_change * -0.5
+        risk_impact = risk_change * -0.3
+        feature_impact = feature_change * 0.4
         
-        # Predict impact
-        impact = self.nps_model.predict(changes_scaled)[0]
-        projected_nps = max(0, min(10, current_nps + impact))
+        total_impact = friction_impact + risk_impact + feature_impact
+        projected_nps = max(0, min(10, current_nps + total_impact))
         
         return {
             'current': current_nps,
             'projected': round(projected_nps, 1),
-            'change': round(impact, 1),
+            'change': round(total_impact, 1),
             'confidence': 0.75
         }
     
@@ -605,14 +589,15 @@ def display_batch_results(results):
         st.plotly_chart(fig, use_container_width=True)
         
         # Stacked chart by NPS category
-        fig2 = px.bar(
-            theme_summary.reset_index(),
-            x='theme',
-            y=['promoter', 'passive', 'detractor'],
-            title="Theme Distribution by NPS Category",
-            labels={'value': 'Count', 'theme': 'Theme'}
-        )
-        st.plotly_chart(fig2, use_container_width=True)
+        if 'promoter' in theme_summary.columns and 'passive' in theme_summary.columns and 'detractor' in theme_summary.columns:
+            fig2 = px.bar(
+                theme_summary.reset_index(),
+                x='theme',
+                y=['promoter', 'passive', 'detractor'],
+                title="Theme Distribution by NPS Category",
+                labels={'value': 'Count', 'theme': 'Theme'}
+            )
+            st.plotly_chart(fig2, use_container_width=True)
     
     # Export batch results
     if st.button("📊 Export Batch Results"):
