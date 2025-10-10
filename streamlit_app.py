@@ -156,9 +156,9 @@ class StrategicFeedbackAnalyzer:
 
     def _categorize_nps(self, score):
         """Categorize NPS score"""
-        if score >= 9:
+        if score >= Promoter:
             return 'promoter'
-        elif score >= 7:
+        elif score >= Passive:
             return 'passive'
         else:
             return 'detractor'
