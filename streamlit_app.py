@@ -433,262 +433,276 @@ else:  # Batch Analysis
         if st.button("🚀 Analyze All Comments", type="primary"):
             with st.spinner("Processing your Lexis+ feedback data... This may take a moment."):
                 
-                # Extract comments and categorize by sentiment
-                comments = df[comment_column].dropna().tolist()
-                
-                # Predict NPS categories based on sentiment
-                nps_categories = []
-                for comment in comments:
-                    category = extract_nps_category_from_sentiment(comment)
-                    nps_categories.append(category)
-                
-                # Calculate NPS
-                nps_score, category_counts = calculate_nps_from_categories(nps_categories)
-                
-                # Display results
-                st.subheader("📈 Lexis+ Hong Kong NPS Analysis Results")
-                
-                # Key metrics
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.metric("NPS Score", f"{nps_score:.1f}")
-                
-                with col2:
-                    st.metric("Total Responses", len(nps_categories))
-                
-                with col3:
-                    promoter_pct = (category_counts.get('Promoter', 0) / len(nps_categories)) * 100
-                    st.metric("Promoters", f"{promoter_pct:.1f}%")
-                
-                with col4:
-                    detractor_pct = (category_counts.get('Detractor', 0) / len(nps_categories)) * 100
-                    st.metric("Detractors", f"{detractor_pct:.1f}%")
-                
-                # Interpretation
-                if nps_score > 50:
-                    st.success("🎉 Excellent NPS Score! Customers are very satisfied with Lexis+")
-                elif nps_score > 0:
-                    st.info("👍 Good NPS Score. Room for improvement in customer satisfaction.")
-                else:
-                    st.warning("⚠️ NPS Score needs attention. Focus on addressing customer concerns.")
-                
-                # Visualization
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    # Category distribution pie chart
-                    fig_pie = px.pie(
-                        values=list(category_counts.values()),
-                        names=list(category_counts.keys()),
-                        title="NPS Category Distribution",
-                        color_discrete_map={
-                            'Promoter': '#2E8B57',
-                            'Passive': '#FFD700', 
-                            'Detractor': '#DC143C',
-                            'Unknown': '#808080'
-                        }
-                    )
-                    st.plotly_chart(fig_pie, use_container_width=True)
-                
-                with col2:
-                    # NPS gauge chart
-                    fig_gauge = go.Figure(go.Indicator(
-                        mode = "gauge+number+delta",
-                        value = nps_score,
-                        domain = {'x': [0, 1], 'y': [0, 1]},
-                        title = {'text': "NPS Score"},
-                        delta = {'reference': 0},
-                        gauge = {
-                            'axis': {'range': [-100, 100]},
-                            'bar': {'color': "darkblue"},
-                            'steps': [
-                                {'range': [-100, 0], 'color': "lightcoral"},
-                                {'range': [0, 50], 'color': "lightyellow"},
-                                {'range': [50, 100], 'color': "lightgreen"}
-                            ],
-                            'threshold': {
-                                'line': {'color': "red", 'width': 4},
-                                'thickness': 0.75,
-                                'value': 90
+                try:
+                    # Extract comments and categorize by sentiment
+                    comments = df[comment_column].dropna().tolist()
+                    
+                    # Predict NPS categories based on sentiment
+                    nps_categories = []
+                    for comment in comments:
+                        category = extract_nps_category_from_sentiment(comment)
+                        nps_categories.append(category)
+                    
+                    # Calculate NPS
+                    nps_score, category_counts = calculate_nps_from_categories(nps_categories)
+                    
+                    # Display results
+                    st.subheader("📈 Lexis+ Hong Kong NPS Analysis Results")
+                    
+                    # Key metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("NPS Score", f"{nps_score:.1f}")
+                    
+                    with col2:
+                        st.metric("Total Responses", len(nps_categories))
+                    
+                    with col3:
+                        promoter_pct = (category_counts.get('Promoter', 0) / len(nps_categories)) * 100
+                        st.metric("Promoters", f"{promoter_pct:.1f}%")
+                    
+                    with col4:
+                        detractor_pct = (category_counts.get('Detractor', 0) / len(nps_categories)) * 100
+                        st.metric("Detractors", f"{detractor_pct:.1f}%")
+                    
+                    # Interpretation
+                    if nps_score > 50:
+                        st.success("🎉 Excellent NPS Score! Customers are very satisfied with Lexis+")
+                    elif nps_score > 0:
+                        st.info("👍 Good NPS Score. Room for improvement in customer satisfaction.")
+                    else:
+                        st.warning("⚠️ NPS Score needs attention. Focus on addressing customer concerns.")
+                    
+                    # Visualization
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        # Category distribution pie chart
+                        fig_pie = px.pie(
+                            values=list(category_counts.values()),
+                            names=list(category_counts.keys()),
+                            title="NPS Category Distribution",
+                            color_discrete_map={
+                                'Promoter': '#2E8B57',
+                                'Passive': '#FFD700', 
+                                'Detractor': '#DC143C',
+                                'Unknown': '#808080'
                             }
-                        }
-                    ))
-                    st.plotly_chart(fig_gauge, use_container_width=True)
-                
-                # Overall themes analysis
-                st.subheader("🎯 Key Themes in Customer Feedback")
-                
-                overall_themes = extract_legal_software_themes(comments, None, min_frequency)
-                
-                if overall_themes:
-                    # Create themes dataframe
-                    themes_data = []
-                    for theme, count in overall_themes.items():
-                        clean_theme = theme.replace('_', ' ').replace(' mentions', '').title()
-                        percentage = (count / len(comments)) * 100
-                        themes_data.append({
-                            'Theme': clean_theme, 
-                            'Count': count, 
-                            'Percentage': f"{percentage:.1f}%"
-                        })
+                        )
+                        st.plotly_chart(fig_pie, use_container_width=True)
                     
-                    themes_df = pd.DataFrame(themes_data).sort_values('Count', ascending=False)
+                    with col2:
+                        # NPS gauge chart
+                        fig_gauge = go.Figure(go.Indicator(
+                            mode = "gauge+number+delta",
+                            value = nps_score,
+                            domain = {'x': [0, 1], 'y': [0, 1]},
+                            title = {'text': "NPS Score"},
+                            delta = {'reference': 0},
+                            gauge = {
+                                'axis': {'range': [-100, 100]},
+                                'bar': {'color': "darkblue"},
+                                'steps': [
+                                    {'range': [-100, 0], 'color': "lightcoral"},
+                                    {'range': [0, 50], 'color': "lightyellow"},
+                                    {'range': [50, 100], 'color': "lightgreen"}
+                                ],
+                                'threshold': {
+                                    'line': {'color': "red", 'width': 4},
+                                    'thickness': 0.75,
+                                    'value': 90
+                                }
+                            }
+                        ))
+                        st.plotly_chart(fig_gauge, use_container_width=True)
                     
-                    # Display themes table
-                    st.dataframe(themes_df.head(15), use_container_width=True)
+                    # Overall themes analysis
+                    st.subheader("🎯 Key Themes in Customer Feedback")
                     
-                    # Themes visualization
-                    top_themes = themes_df.head(12)
-                    fig_themes = px.bar(
-                        top_themes, 
-                        x='Count', 
-                        y='Theme', 
-                        orientation='h',
-                        title="Most Common Themes in Lexis+ Feedback",
-                        color='Count',
-                        color_continuous_scale='viridis'
+                    overall_themes = extract_legal_software_themes(comments, None, min_frequency)
+                    
+                    if overall_themes:
+                        # Create themes dataframe
+                        themes_data = []
+                        for theme, count in overall_themes.items():
+                            clean_theme = theme.replace('_', ' ').replace(' mentions', '').title()
+                            percentage = (count / len(comments)) * 100
+                            themes_data.append({
+                                'Theme': clean_theme, 
+                                'Count': count, 
+                                'Percentage': f"{percentage:.1f}%"
+                            })
+                        
+                        themes_df = pd.DataFrame(themes_data).sort_values('Count', ascending=False)
+                        
+                        # Display themes table
+                        st.dataframe(themes_df.head(15), use_container_width=True)
+                        
+                        # Themes visualization
+                        top_themes = themes_df.head(12)
+                        fig_themes = px.bar(
+                            top_themes, 
+                            x='Count', 
+                            y='Theme', 
+                            orientation='h',
+                            title="Most Common Themes in Lexis+ Feedback",
+                            color='Count',
+                            color_continuous_scale='viridis'
+                        )
+                        fig_themes.update_layout(height=500)
+                        st.plotly_chart(fig_themes, use_container_width=True)
+                    
+                    # Category-specific analysis
+                    st.subheader("📝 Detailed Analysis by NPS Category")
+                    
+                    # Create a copy of the original dataframe for results
+                    df_with_nps = df.copy()
+                    
+                    # Ensure we only add categories for the rows that had valid comments
+                    valid_indices = df[comment_column].dropna().index
+                    
+                    # Create a series with the same index as the original dataframe
+                    category_series = pd.Series(index=df.index, dtype='object')
+                    category_series.loc[valid_indices] = nps_categories
+                    
+                    # Assign to the dataframe
+                    df_with_nps['NPS_Category'] = category_series
+                    
+                    tab1, tab2, tab3 = st.tabs(["🟢 Promoters", "🟡 Passives", "🔴 Detractors"])
+                    
+                    with tab1:
+                        promoter_comments = df_with_nps[df_with_nps['NPS_Category'] == 'Promoter'][comment_column].dropna().tolist()
+                        if promoter_comments:
+                            promoter_themes = extract_legal_software_themes(promoter_comments, 'Promoter', min_frequency)
+                            
+                            st.write(f"**{len(promoter_comments)} Promoter comments analyzed**")
+                            
+                            if promoter_themes:
+                                promoter_data = []
+                                for theme, count in promoter_themes.items():
+                                    clean_theme = theme.replace('_', ' ').replace(' mentions', '').title()
+                                    percentage = (count / len(promoter_comments)) * 100
+                                    promoter_data.append({
+                                        'Theme': clean_theme,
+                                        'Count': count,
+                                        'Percentage': f"{percentage:.1f}%"
+                                    })
+                                
+                                promoter_df = pd.DataFrame(promoter_data).sort_values('Count', ascending=False)
+                                st.dataframe(promoter_df)
+                                
+                                # Top positive themes
+                                st.write("**What Promoters Love About Lexis+:**")
+                                for _, row in promoter_df.head(5).iterrows():
+                                    st.write(f"• {row['Theme']}: {row['Count']} mentions ({row['Percentage']})")
+                            else:
+                                st.write("No themes found above the minimum frequency threshold.")
+                        else:
+                            st.write("No Promoter comments found.")
+                    
+                    with tab2:
+                        passive_comments = df_with_nps[df_with_nps['NPS_Category'] == 'Passive'][comment_column].dropna().tolist()
+                        if passive_comments:
+                            passive_themes = extract_legal_software_themes(passive_comments, 'Passive', min_frequency)
+                            
+                            st.write(f"**{len(passive_comments)} Passive comments analyzed**")
+                            
+                            if passive_themes:
+                                passive_data = []
+                                for theme, count in passive_themes.items():
+                                    clean_theme = theme.replace('_', ' ').replace(' mentions', '').title()
+                                    percentage = (count / len(passive_comments)) * 100
+                                    passive_data.append({
+                                        'Theme': clean_theme,
+                                        'Count': count,
+                                        'Percentage': f"{percentage:.1f}%"
+                                    })
+                                
+                                passive_df = pd.DataFrame(passive_data).sort_values('Count', ascending=False)
+                                st.dataframe(passive_df)
+                                
+                                st.write("**Key Insights from Passive Users:**")
+                                for _, row in passive_df.head(5).iterrows():
+                                    st.write(f"• {row['Theme']}: {row['Count']} mentions ({row['Percentage']})")
+                            else:
+                                st.write("No themes found above the minimum frequency threshold.")
+                        else:
+                            st.write("No Passive comments found.")
+                    
+                    with tab3:
+                        detractor_comments = df_with_nps[df_with_nps['NPS_Category'] == 'Detractor'][comment_column].dropna().tolist()
+                        if detractor_comments:
+                            detractor_themes = extract_legal_software_themes(detractor_comments, 'Detractor', min_frequency)
+                            
+                            st.write(f"**{len(detractor_comments)} Detractor comments analyzed**")
+                            
+                            if detractor_themes:
+                                detractor_data = []
+                                for theme, count in detractor_themes.items():
+                                    clean_theme = theme.replace('_', ' ').replace(' mentions', '').title()
+                                    percentage = (count / len(detractor_comments)) * 100
+                                    detractor_data.append({
+                                        'Theme': clean_theme,
+                                        'Count': count,
+                                        'Percentage': f"{percentage:.1f}%"
+                                    })
+                                
+                                detractor_df = pd.DataFrame(detractor_data).sort_values('Count', ascending=False)
+                                st.dataframe(detractor_df)
+                                
+                                st.write("**Areas for Improvement (Detractor Concerns):**")
+                                for _, row in detractor_df.head(5).iterrows():
+                                    st.write(f"• {row['Theme']}: {row['Count']} mentions ({row['Percentage']})")
+                            else:
+                                st.write("No themes found above the minimum frequency threshold.")
+                        else:
+                            st.write("No Detractor comments found.")
+                    
+                    # Actionable insights
+                    st.subheader("💡 Key Insights & Recommendations")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.write("**Strengths to Leverage:**")
+                        if overall_themes:
+                            positive_themes = ['user_friendly', 'comprehensive_database', 'easy_navigation', 
+                                             'good_search_engine', 'reliable_accurate', 'up_to_date']
+                            for theme in positive_themes:
+                                if theme in overall_themes:
+                                    count = overall_themes[theme]
+                                    clean_theme = theme.replace('_', ' ').title()
+                                    st.write(f"✅ {clean_theme}: {count} mentions")
+                    
+                    with col2:
+                        st.write("**Areas for Improvement:**")
+                        if overall_themes:
+                            negative_themes = ['expensive_pricing', 'slow_performance', 'search_issues', 
+                                             'interface_problems', 'missing_features']
+                            for theme in negative_themes:
+                                if theme in overall_themes:
+                                    count = overall_themes[theme]
+                                    clean_theme = theme.replace('_', ' ').title()
+                                    st.write(f"⚠️ {clean_theme}: {count} mentions")
+                    
+                    # Download results
+                    st.subheader("💾 Download Analysis Results")
+                    
+                    # Add NPS score to the results dataframe
+                    df_with_nps['NPS_Score'] = nps_score
+                    
+                    csv = df_with_nps.to_csv(index=False)
+                    st.download_button(
+                        label="📥 Download Complete Analysis as CSV",
+                        data=csv,
+                        file_name="lexis_plus_nps_analysis_results.csv",
+                        mime="text/csv"
                     )
-                    fig_themes.update_layout(height=500)
-                    st.plotly_chart(fig_themes, use_container_width=True)
-                
-                # Category-specific analysis
-                st.subheader("📝 Detailed Analysis by NPS Category")
-                
-                # Add categories to dataframe
-                df_with_nps = df.copy()
-                df_with_nps['NPS_Category'] = nps_categories
-                
-                tab1, tab2, tab3 = st.tabs(["🟢 Promoters", "🟡 Passives", "🔴 Detractors"])
-                
-                with tab1:
-                    promoter_comments = df_with_nps[df_with_nps['NPS_Category'] == 'Promoter'][comment_column].dropna().tolist()
-                    if promoter_comments:
-                        promoter_themes = extract_legal_software_themes(promoter_comments, 'Promoter', min_frequency)
-                        
-                        st.write(f"**{len(promoter_comments)} Promoter comments analyzed**")
-                        
-                        if promoter_themes:
-                            promoter_data = []
-                            for theme, count in promoter_themes.items():
-                                clean_theme = theme.replace('_', ' ').replace(' mentions', '').title()
-                                percentage = (count / len(promoter_comments)) * 100
-                                promoter_data.append({
-                                    'Theme': clean_theme,
-                                    'Count': count,
-                                    'Percentage': f"{percentage:.1f}%"
-                                })
-                            
-                            promoter_df = pd.DataFrame(promoter_data).sort_values('Count', ascending=False)
-                            st.dataframe(promoter_df)
-                            
-                            # Top positive themes
-                            st.write("**What Promoters Love About Lexis+:**")
-                            for _, row in promoter_df.head(5).iterrows():
-                                st.write(f"• {row['Theme']}: {row['Count']} mentions ({row['Percentage']})")
-                        else:
-                            st.write("No themes found above the minimum frequency threshold.")
-                    else:
-                        st.write("No Promoter comments found.")
-                
-                with tab2:
-                    passive_comments = df_with_nps[df_with_nps['NPS_Category'] == 'Passive'][comment_column].dropna().tolist()
-                    if passive_comments:
-                        passive_themes = extract_legal_software_themes(passive_comments, 'Passive', min_frequency)
-                        
-                        st.write(f"**{len(passive_comments)} Passive comments analyzed**")
-                        
-                        if passive_themes:
-                            passive_data = []
-                            for theme, count in passive_themes.items():
-                                clean_theme = theme.replace('_', ' ').replace(' mentions', '').title()
-                                percentage = (count / len(passive_comments)) * 100
-                                passive_data.append({
-                                    'Theme': clean_theme,
-                                    'Count': count,
-                                    'Percentage': f"{percentage:.1f}%"
-                                })
-                            
-                            passive_df = pd.DataFrame(passive_data).sort_values('Count', ascending=False)
-                            st.dataframe(passive_df)
-                            
-                            st.write("**Key Insights from Passive Users:**")
-                            for _, row in passive_df.head(5).iterrows():
-                                st.write(f"• {row['Theme']}: {row['Count']} mentions ({row['Percentage']})")
-                        else:
-                            st.write("No themes found above the minimum frequency threshold.")
-                    else:
-                        st.write("No Passive comments found.")
-                
-                with tab3:
-                    detractor_comments = df_with_nps[df_with_nps['NPS_Category'] == 'Detractor'][comment_column].dropna().tolist()
-                    if detractor_comments:
-                        detractor_themes = extract_legal_software_themes(detractor_comments, 'Detractor', min_frequency)
-                        
-                        st.write(f"**{len(detractor_comments)} Detractor comments analyzed**")
-                        
-                        if detractor_themes:
-                            detractor_data = []
-                            for theme, count in detractor_themes.items():
-                                clean_theme = theme.replace('_', ' ').replace(' mentions', '').title()
-                                percentage = (count / len(detractor_comments)) * 100
-                                detractor_data.append({
-                                    'Theme': clean_theme,
-                                    'Count': count,
-                                    'Percentage': f"{percentage:.1f}%"
-                                })
-                            
-                            detractor_df = pd.DataFrame(detractor_data).sort_values('Count', ascending=False)
-                            st.dataframe(detractor_df)
-                            
-                            st.write("**Areas for Improvement (Detractor Concerns):**")
-                            for _, row in detractor_df.head(5).iterrows():
-                                st.write(f"• {row['Theme']}: {row['Count']} mentions ({row['Percentage']})")
-                        else:
-                            st.write("No themes found above the minimum frequency threshold.")
-                    else:
-                        st.write("No Detractor comments found.")
-                
-                # Actionable insights
-                st.subheader("💡 Key Insights & Recommendations")
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.write("**Strengths to Leverage:**")
-                    if overall_themes:
-                        positive_themes = ['user_friendly', 'comprehensive_database', 'easy_navigation', 
-                                         'good_search_engine', 'reliable_accurate', 'up_to_date']
-                        for theme in positive_themes:
-                            if theme in overall_themes:
-                                count = overall_themes[theme]
-                                clean_theme = theme.replace('_', ' ').title()
-                                st.write(f"✅ {clean_theme}: {count} mentions")
-                
-                with col2:
-                    st.write("**Areas for Improvement:**")
-                    if overall_themes:
-                        negative_themes = ['expensive_pricing', 'slow_performance', 'search_issues', 
-                                         'interface_problems', 'missing_features']
-                        for theme in negative_themes:
-                            if theme in overall_themes:
-                                count = overall_themes[theme]
-                                clean_theme = theme.replace('_', ' ').title()
-                                st.write(f"⚠️ {clean_theme}: {count} mentions")
-                
-                # Download results
-                st.subheader("💾 Download Analysis Results")
-                
-                results_df = df_with_nps.copy()
-                results_df['NPS_Score'] = nps_score
-                
-                csv = results_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download Complete Analysis as CSV",
-                    data=csv,
-                    file_name="lexis_plus_nps_analysis_results.csv",
-                    mime="text/csv"
-                )
+                    
+                except Exception as e:
+                    st.error(f"An error occurred during analysis: {str(e)}")
+                    st.write("Please check your data format and try again.")
 
 # Sidebar
 with st.sidebar:
