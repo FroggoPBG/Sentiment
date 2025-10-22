@@ -4,48 +4,81 @@ import re
 from collections import Counter
 import plotly.express as px
 import plotly.graph_objects as go
-from textblob import TextBlob
-import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import WordNetLemmatizer
 
-# Download required NLTK data
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
-
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords')
-
-try:
-    nltk.data.find('corpora/wordnet')
-except LookupError:
-    nltk.download('wordnet')
+def simple_sentiment_analysis(text):
+    """
+    Simple sentiment analysis using keyword patterns
+    Returns sentiment score between -1 and 1
+    """
+    if not isinstance(text, str) or len(text.strip()) < 3:
+        return 0
+    
+    text_lower = text.lower()
+    
+    # Positive keywords
+    positive_words = [
+        'excellent', 'outstanding', 'amazing', 'fantastic', 'great', 'wonderful', 'superb',
+        'brilliant', 'perfect', 'awesome', 'good', 'helpful', 'useful', 'easy', 'simple',
+        'user-friendly', 'comprehensive', 'reliable', 'accurate', 'fast', 'efficient',
+        'convenient', 'valuable', 'beneficial', 'effective', 'powerful', 'trustworthy',
+        'authoritative', 'up-to-date', 'current', 'modern', 'advanced', 'intuitive',
+        'satisfactory', 'satisfied', 'recommend', 'love', 'like', 'appreciate'
+    ]
+    
+    # Negative keywords
+    negative_words = [
+        'poor', 'bad', 'terrible', 'awful', 'horrible', 'disappointing', 'slow', 'delayed',
+        'expensive', 'overpriced', 'costly', 'difficult', 'hard', 'complicated', 'confusing',
+        'frustrating', 'unreliable', 'inaccurate', 'outdated', 'primitive', 'inadequate',
+        'insufficient', 'lacking', 'missing', 'broken', 'faulty', 'defective', 'useless',
+        'unhelpful', 'unfriendly', 'rude', 'unprofessional', 'hate', 'dislike', 'avoid'
+    ]
+    
+    # Neutral/moderate keywords
+    neutral_words = [
+        'average', 'okay', 'acceptable', 'moderate', 'standard', 'normal', 'fine',
+        'alright', 'decent', 'satisfactory', 'adequate'
+    ]
+    
+    # Count occurrences
+    positive_count = sum(1 for word in positive_words if word in text_lower)
+    negative_count = sum(1 for word in negative_words if word in text_lower)
+    neutral_count = sum(1 for word in neutral_words if word in text_lower)
+    
+    # Calculate sentiment score
+    total_words = positive_count + negative_count + neutral_count
+    
+    if total_words == 0:
+        return 0  # Neutral if no sentiment words found
+    
+    # Weight the sentiment
+    sentiment = (positive_count - negative_count) / max(total_words, 1)
+    
+    # Adjust for neutral words
+    if neutral_count > positive_count and neutral_count > negative_count:
+        sentiment = sentiment * 0.5  # Reduce sentiment if many neutral words
+    
+    return max(-1, min(1, sentiment))  # Clamp between -1 and 1
 
 def extract_nps_category_from_sentiment(text):
     """
-    Extract NPS category from text sentiment since your data doesn't have explicit categories
+    Extract NPS category from text sentiment
     """
     if not isinstance(text, str) or len(text.strip()) < 3:
         return 'Unknown'
     
     # Clean text for analysis
     text_clean = text.replace('"', '').replace('/', '').strip()
-    if text_clean.lower() in ['', '.', 'no comment', '/']:
+    if text_clean.lower() in ['', '.', 'no comment', '/', 'ok']:
         return 'Unknown'
     
-    # Use TextBlob for sentiment analysis
-    blob = TextBlob(text_clean)
-    polarity = blob.sentiment.polarity
+    # Use simple sentiment analysis
+    sentiment = simple_sentiment_analysis(text_clean)
     
     # Define thresholds for legal software feedback
-    if polarity > 0.2:
+    if sentiment > 0.2:
         return 'Promoter'
-    elif polarity < -0.1:
+    elif sentiment < -0.1:
         return 'Detractor'
     else:
         return 'Passive'
@@ -223,7 +256,8 @@ st.title("⚖️ Lexis+ Hong Kong NPS Analysis")
 st.markdown("Comprehensive analysis of Lexis+ Hong Kong customer feedback and NPS scoring")
 
 # Sample data button
-if st.button("📝 Load Sample Data (Your 330 Comments)", type="secondary"):
+if st.button("📝 Load Sample Data (Your Comments)", type="secondary"):
+    # Load a subset of your actual comments for testing
     sample_comments = [
         "it is an important tool for legal research",
         "reliable, easy to navigate, and offers comprehensive legal resources",
@@ -336,8 +370,8 @@ if analysis_type == "Individual Feedback":
                     st.write("No specific themes identified in this comment.")
                     
             # Show sentiment analysis
-            blob = TextBlob(comment)
-            st.write(f"**Sentiment Score:** {blob.sentiment.polarity:.2f} (Range: -1 to 1)")
+            sentiment = simple_sentiment_analysis(comment)
+            st.write(f"**Sentiment Score:** {sentiment:.2f} (Range: -1 to 1)")
         else:
             st.warning("Please enter a customer comment to analyze.")
 
@@ -662,35 +696,30 @@ with st.sidebar:
     st.write("""
     This tool analyzes Lexis+ Hong Kong customer feedback using:
     
-    **🤖 AI-Powered Analysis:**
-    - Sentiment-based NPS categorization
-    - Legal software specific theme extraction
-    - Pattern recognition for legal terminology
+    **🤖 Simple Sentiment Analysis:**
+    - Keyword-based sentiment scoring
+    - NPS categorization (Promoter/Passive/Detractor)
+    - Legal software specific patterns
     
-    **📊 Key Metrics:**
-    - NPS Score calculation
-    - Theme frequency analysis
-    - Category-specific insights
+    **📊 Key Features:**
+    - No external dependencies
+    - Fast processing
+    - Legal terminology focus
+    - Comprehensive theme extraction
     
-    **🎯 Focus Areas:**
-    - User experience
-    - Database quality
-    - Search functionality
-    - Pricing concerns
-    - Technical performance
-    """)
-    
-    st.header("📋 Expected Data Format")
-    st.write("CSV with 'NPS Verbatim Comments' column containing customer feedback text.")
-    
-    st.header("🔍 Sample Themes Detected")
-    st.write("""
-    - User Friendly Interface
-    - Comprehensive Database
-    - Search Engine Quality
+    **🎯 Themes Detected:**
+    - User Experience
+    - Database Quality
+    - Search Functionality
     - Pricing Concerns
-    - AI Features
-    - Halsbury Content
-    - Customer Service
     - Performance Issues
     """)
+    
+    st.header("📋 Data Format")
+    st.write("Upload CSV with customer comments column")
+    
+    st.header("🚀 Quick Start")
+    st.write("1. Click 'Load Sample Data' to test")
+    st.write("2. Or upload your CSV file")
+    st.write("3. Select comment column")
+    st.write("4. Click 'Analyze All Comments'")
