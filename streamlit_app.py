@@ -237,13 +237,41 @@ def create_sentiment_analysis_chart(df):
 
 def generate_wordcloud(text_data):
     """Generate word cloud from text data"""
-    if not text_data or len(text_data) == 0:
-        return None
+    try:
+        # Filter out empty/null values
+        valid_texts = []
+        for text in text_data:
+            if pd.notna(text) and str(text).strip() != '' and len(str(text).strip()) > 2:
+                valid_texts.append(str(text))
+        
+        if len(valid_texts) == 0:
+            return None
+        
+        # Combine all text
+        all_text = ' '.join(valid_texts)
+        
+        if len(all_text.strip()) < 10:
+            return None
+        
+        # Generate word cloud
+        wordcloud = WordCloud(
+            width=800, 
+            height=400, 
+            background_color='white',
+            max_words=100,
+            colormap='viridis',
+            collocations=False,
+            relative_scaling=0.5
+        ).generate(all_text)
+        
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.imshow(wordcloud, interpolation='bilinear')
+        ax.axis('off')
+        plt.tight_layout(pad=0)
+        return fig
     
-    # Combine all text
-    all_text = ' '.join([str(text) for text in text_data if pd.notna(text) and str(text).strip() != ''])
-    
-    if len(all_text.strip()) < 10:
+    except Exception as e:
+        # If word cloud fails, just return None
         return None
     
     try:
