@@ -11,7 +11,7 @@ import seaborn as sns
 from datetime import datetime, timedelta
 import re
 from collections import Counter
-import advanced_sentiment  # Import the new custom module
+import advanced_sentiment  # Custom module (now fixed)
 from sklearn.linear_model import LinearRegression
 import io
 from reportlab.lib.pagesizes import letter
@@ -115,13 +115,10 @@ class NPSAnalyzer:
         polarities = [r[0] for r in results]
         categories = [r[1] for r in results]
         all_entities = [ent for r in results for ent in r[2]]  # Flatten
-        df['sentiment_score'] = polarities
-        df['sentiment_category'] = categories
         return polarities, categories, Counter(all_entities).most_common(10)
     
     def get_key_themes(self, text_column, max_features=20):
         """Extract key themes using TF-IDF"""
-        # [Existing code - omitted for brevity]
         texts = [str(text).lower() for text in text_column if pd.notna(text) and len(str(text).strip()) > 3]
         
         if len(texts) < 2:
@@ -145,7 +142,6 @@ class NPSAnalyzer:
 
 def create_nps_gauge(nps_score):
     """Create an NPS gauge chart"""
-    # [Existing code - omitted for brevity]
     fig = go.Figure(go.Indicator(
         mode = "gauge+number",
         value = nps_score,
@@ -172,7 +168,6 @@ def create_nps_gauge(nps_score):
 
 def create_distribution_chart(promoters, passives, detractors):
     """Create distribution pie chart"""
-    # [Existing code - omitted for brevity]
     labels = ['Promoters', 'Passives', 'Detractors']
     values = [promoters, passives, detractors]
     colors = ['#2E8B57', '#FFD700', '#DC143C']
@@ -191,29 +186,21 @@ def create_distribution_chart(promoters, passives, detractors):
     )
     return fig
 
-def create_sentiment_analysis_chart(df):
+def create_sentiment_analysis_chart(df, polarities, categories):
     """Create sentiment analysis visualization"""
-    # [Existing code - omitted for brevity]
-    if 'sentiment_score' not in df.columns:
-        return None
-    
-    df['sentiment_category'] = df['sentiment_score'].apply(
-        lambda x: 'Positive' if x > 0.1 else ('Negative' if x < -0.1 else 'Neutral')
-    )
-    
-    sentiment_counts = df['sentiment_category'].value_counts()
+    sentiment_counts = pd.Series(categories).value_counts()
     
     fig = go.Figure(data=[
         go.Bar(
             x=sentiment_counts.index,
             y=sentiment_counts.values,
-            marker_color=['green', 'gray', 'red']
+            marker_color=['green', 'gray', 'red', 'orange']  # For 'Mixed'
         )
     ])
     
     fig.update_layout(
-        title="Sentiment Analysis of Feedback",
-        xaxis_title="Sentiment",
+        title="Advanced Sentiment Analysis",
+        xaxis_title="Sentiment Category",
         yaxis_title="Count",
         height=400
     )
@@ -222,16 +209,20 @@ def create_sentiment_analysis_chart(df):
 
 def generate_wordcloud(text_data):
     """Generate word cloud from text data"""
-    # [Existing code - omitted for brevity]
-    try:
-        all_text = ' '.join(text_data.dropna().astype(str))
-        wordcloud = WordCloud(width=800, height=400).generate(all_text)
-        fig, ax = plt.subplots()
-        ax.imshow(wordcloud, interpolation='bilinear')
-        ax.axis("off")
-        return fig
-    except:
+    valid_texts = [str(text) for text in text_data if pd.notna(text) and len(str(text).strip()) > 2]
+    if not valid_texts:
         return None
+    
+    all_text = ' '.join(valid_texts)
+    if len(all_text.strip()) < 10:
+        return None
+    
+    wordcloud = WordCloud(width=800, height=400).generate(all_text)
+    
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.imshow(wordcloud, interpolation='bilinear')
+    ax.axis('off')
+    return fig
 
 def main():
     # Header
@@ -254,7 +245,7 @@ def main():
             # Calculate NPS
             nps_score, promoters, passives, detractors, _, _, _ = analyzer.calculate_nps_from_categories(df['score'])
             
-            # Sentiment analysis using custom module
+            # Advanced sentiment analysis
             polarities, categories, entities = analyzer.analyze_sentiment(df['feedback'])
             df['sentiment_score'] = polarities
             df['sentiment_category'] = categories
@@ -262,9 +253,10 @@ def main():
             # Themes
             themes = analyzer.get_key_themes(df['feedback'])
             
-            # Display metrics and charts
+            # Display
             st.write("NPS Score:", nps_score)
-            # Add more UI elements as in original
+            st.plotly_chart(create_sentiment_analysis_chart(df, polarities, categories))
+            # Add other UI elements...
             
             # Word cloud
             wc_fig = generate_wordcloud(df['feedback'])
