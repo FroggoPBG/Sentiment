@@ -1,506 +1,738 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import numpy as np
-from textblob import TextBlob
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
-from sklearn.feature_extraction.text import TfidfVectorizer
-import seaborn as sns
-from datetime import datetime, timedelta
 import re
-from collections import Counter
+from datetime import datetime, timedelta
+import warnings
+warnings.filterwarnings('ignore')
 
-# Page configuration
+# Configure Streamlit page
 st.set_page_config(
-    page_title="NPS Analysis Platform",
-    page_icon="🚀",
+    page_title="Legal Feedback Intelligence Hub",
+    page_icon="⚖️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS for better styling
 st.markdown("""
 <style>
     .main-header {
-        font-size: 3rem;
-        font-weight: bold;
         text-align: center;
-        margin-bottom: 2rem;
-        background: linear-gradient(90deg, #FF6B6B, #4ECDC4);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    .metric-card {
+        padding: 2rem 0;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1rem;
+        margin: -1rem -1rem 2rem -1rem;
+        color: white;
+        border-radius: 10px;
+    }
+    
+    .metric-card {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        padding: 1.5rem;
         border-radius: 10px;
         color: white;
         text-align: center;
         margin: 0.5rem 0;
     }
-    .insight-box {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-left: 4px solid #007bff;
+    
+    .insight-card {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        padding: 1.5rem;
+        border-radius: 10px;
+        color: white;
+        margin: 0.5rem 0;
+    }
+    
+    .recommendation-card {
+        background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        padding: 1.5rem;
+        border-radius: 10px;
+        color: #333;
         margin: 1rem 0;
-        border-radius: 5px;
+        border-left: 5px solid #28a745;
+    }
+    
+    .stSelectbox > div > div {
+        background-color: #f8f9fa;
     }
 </style>
 """, unsafe_allow_html=True)
 
-class NPSAnalyzer:
+# Legal domain-specific aspects and keywords
+LEGAL_ASPECTS = {
+    'search': {
+        'name': 'Case Search & Research',
+        'keywords': ['search', 'case law', 'research', 'precedent', 'citation', 'find', 'query', 'boolean', 'westlaw', 'lexis'],
+        'icon': '🔍'
+    },
+    'citation': {
+        'name': 'Citation Management', 
+        'keywords': ['citation', 'bluebook', 'shepard', 'cite', 'reference', 'footnote', 'bibliography'],
+        'icon': '📚'
+    },
+    'document': {
+        'name': 'Document Management',
+        'keywords': ['document', 'pdf', 'file', 'upload', 'storage', 'organize', 'folder', 'brief', 'contract'],
+        'icon': '📄'
+    },
+    'billing': {
+        'name': 'Billing & Time Tracking',
+        'keywords': ['billing', 'time', 'hours', 'invoice', 'payment', 'rates', 'expense', 'timesheet'],
+        'icon': '💰'
+    },
+    'ui': {
+        'name': 'User Interface',
+        'keywords': ['interface', 'design', 'layout', 'navigation', 'menu', 'button', 'screen', 'usability'],
+        'icon': '🖥️'
+    },
+    'integration': {
+        'name': 'Integrations',
+        'keywords': ['integration', 'api', 'connect', 'sync', 'export', 'import', 'outlook', 'office'],
+        'icon': '🔗'
+    },
+    'compliance': {
+        'name': 'Compliance & Ethics',
+        'keywords': ['compliance', 'ethics', 'gdpr', 'privacy', 'security', 'confidential', 'ethical'],
+        'icon': '⚖️'
+    },
+    'performance': {
+        'name': 'System Performance',
+        'keywords': ['speed', 'slow', 'fast', 'performance', 'load', 'crash', 'bug', 'error'],
+        'icon': '⚡'
+    }
+}
+
+class LegalSentimentAnalyzer:
     def __init__(self):
-        self.df = None
+        # Legal-specific positive terms
+        self.legal_positive = [
+            'efficient', 'accurate', 'comprehensive', 'reliable', 'professional',
+            'streamlined', 'intuitive', 'thorough', 'precise', 'excellent',
+            'outstanding', 'impressed', 'helpful', 'valuable', 'essential',
+            'game-changer', 'revolutionary', 'innovative', 'cutting-edge',
+            'fantastic', 'amazing', 'perfect', 'love', 'great', 'wonderful'
+        ]
         
-    def load_data(self, uploaded_file):
-        """Load and validate CSV data"""
-        try:
-            self.df = pd.read_csv(uploaded_file)
-            return True
-        except Exception as e:
-            st.error(f"Error loading file: {str(e)}")
-            return False
+        # Legal-specific negative terms
+        self.legal_negative = [
+            'outdated', 'inaccurate', 'slow', 'confusing', 'unreliable',
+            'cumbersome', 'inadequate', 'frustrating', 'disappointing', 'useless',
+            'terrible', 'awful', 'horrible', 'broken', 'failed', 'error',
+            'bug', 'crash', 'unethical', 'non-compliant', 'biased', 'hate',
+            'worst', 'bad', 'poor', 'difficult', 'complicated'
+        ]
+        
+        # Intensifiers
+        self.intensifiers = ['very', 'extremely', 'absolutely', 'completely', 'totally', 'really']
     
-    def validate_data(self, df):
-        """Validate that required columns exist"""
-        required_columns = ['score', 'feedback']
-        missing_columns = [col for col in required_columns if col not in df.columns]
+    def analyze_sentiment(self, text):
+        if not text or pd.isna(text):
+            return {'score': 0, 'confidence': 0, 'label': 'neutral'}
         
-        if missing_columns:
-            return False, missing_columns
-        return True, []
-    
-    def calculate_nps_from_categories(self, score_column):
-        """Calculate NPS from pre-categorized data"""
-        # Normalize the categories (handle different capitalizations)
-        normalized_scores = score_column.astype(str).str.lower().str.strip()
+        text = str(text).lower()
+        words = re.findall(r'\b\w+\b', text)
         
-        # Count each category
-        promoters_count = normalized_scores.str.contains('promoter', na=False).sum()
-        passives_count = normalized_scores.str.contains('passive', na=False).sum()
-        detractors_count = normalized_scores.str.contains('detractor', na=False).sum()
+        positive_count = 0
+        negative_count = 0
+        confidence = 0
+        intensifier_multiplier = 1
         
-        total_responses = len(score_column.dropna())
-        
-        if total_responses == 0:
-            return 0, 0, 0, 0, 0, 0, 0
-        
-        # Calculate percentages
-        promoters_pct = (promoters_count / total_responses) * 100
-        passives_pct = (passives_count / total_responses) * 100
-        detractors_pct = (detractors_count / total_responses) * 100
-        
-        # Calculate NPS
-        nps_score = promoters_pct - detractors_pct
-        
-        # Simple confidence interval
-        if total_responses > 1:
-            margin_error = 1.96 * np.sqrt((promoters_pct * (100 - promoters_pct)) / total_responses)
-            conf_lower = max(-100, nps_score - margin_error)
-            conf_upper = min(100, nps_score + margin_error)
-        else:
-            margin_error = 0
-            conf_lower = nps_score
-            conf_upper = nps_score
-        
-        return nps_score, promoters_count, passives_count, detractors_count, conf_lower, conf_upper, margin_error
-    
-    def analyze_sentiment(self, text_column):
-        """Analyze sentiment of feedback text using TextBlob"""
-        sentiments = []
-        
-        for text in text_column:
-            if pd.isna(text) or str(text).strip() == '':
-                sentiments.append(0)
-            else:
-                try:
-                    blob = TextBlob(str(text))
-                    sentiments.append(blob.sentiment.polarity)
-                except:
-                    sentiments.append(0)
-        
-        return sentiments
-    
-    def get_key_themes(self, text_column, max_features=20):
-        """Extract key themes from feedback using TF-IDF"""
-        # Clean and filter text
-        texts = []
-        for text in text_column:
-            if pd.isna(text) or str(text).strip() == '':
+        for i, word in enumerate(words):
+            # Check for intensifiers
+            if word in self.intensifiers and i < len(words) - 1:
+                intensifier_multiplier = 1.5
                 continue
-            # Basic text cleaning
-            clean_text = re.sub(r'[^a-zA-Z\s]', '', str(text).lower())
-            if len(clean_text.strip()) > 3:
-                texts.append(clean_text)
+            
+            if word in self.legal_positive:
+                positive_count += intensifier_multiplier
+                confidence += 0.1
+            
+            if word in self.legal_negative:
+                negative_count += intensifier_multiplier
+                confidence += 0.1
+            
+            intensifier_multiplier = 1
         
-        if len(texts) < 2:
-            return []
+        # Calculate final score
+        total_words = len(words)
+        if total_words == 0:
+            return {'score': 0, 'confidence': 0, 'label': 'neutral'}
         
-        try:
-            # TF-IDF Analysis
-            vectorizer = TfidfVectorizer(
-                max_features=max_features,
-                stop_words='english',
-                ngram_range=(1, 2),
-                min_df=2
-            )
-            
-            tfidf_matrix = vectorizer.fit_transform(texts)
-            feature_names = vectorizer.get_feature_names_out()
-            scores = tfidf_matrix.sum(axis=0).A1
-            
-            # Create theme scores
-            theme_scores = list(zip(feature_names, scores))
-            theme_scores.sort(key=lambda x: x[1], reverse=True)
-            
-            return theme_scores[:15]
-        except Exception as e:
-            st.warning(f"Theme extraction failed: {e}")
-            return []
-
-def create_nps_gauge(nps_score):
-    """Create an NPS gauge chart"""
-    fig = go.Figure(go.Indicator(
-        mode = "gauge+number",
-        value = nps_score,
-        domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': "NPS Score"},
-        gauge = {
-            'axis': {'range': [-100, 100]},
-            'bar': {'color': "darkblue"},
-            'steps': [
-                {'range': [-100, 0], 'color': "lightgray"},
-                {'range': [0, 50], 'color': "gray"},
-                {'range': [50, 100], 'color': "lightgreen"}
-            ],
-            'threshold': {
-                'line': {'color': "red", 'width': 4},
-                'thickness': 0.75,
-                'value': 90
-            }
+        score = (positive_count - negative_count) / max(total_words, 1)
+        score = max(-1, min(1, score))
+        confidence = min(confidence, 1)
+        
+        # Determine label
+        if score > 0.1:
+            label = 'positive'
+        elif score < -0.1:
+            label = 'negative'
+        else:
+            label = 'neutral'
+        
+        return {
+            'score': score,
+            'confidence': confidence,
+            'label': label,
+            'positive_words': positive_count,
+            'negative_words': negative_count
         }
-    ))
     
-    fig.update_layout(height=400)
-    return fig
+    def extract_aspects(self, text):
+        if not text or pd.isna(text):
+            return []
+        
+        text = str(text).lower()
+        detected_aspects = []
+        
+        for aspect_id, aspect in LEGAL_ASPECTS.items():
+            matches = [keyword for keyword in aspect['keywords'] if keyword in text]
+            
+            if matches:
+                # Get sentences containing the aspect
+                sentences = re.split(r'[.!?]+', str(text))
+                relevant_sentences = [s for s in sentences if any(match in s.lower() for match in matches)]
+                
+                if relevant_sentences:
+                    aspect_sentiment = self.analyze_sentiment(' '.join(relevant_sentences))
+                    detected_aspects.append({
+                        'id': aspect_id,
+                        'name': aspect['name'],
+                        'icon': aspect['icon'],
+                        'sentiment': aspect_sentiment['score'],
+                        'confidence': aspect_sentiment['confidence'],
+                        'matches': matches,
+                        'text': relevant_sentences[0][:100] + '...' if len(relevant_sentences[0]) > 100 else relevant_sentences[0]
+                    })
+        
+        return detected_aspects
 
-def create_distribution_chart(promoters, passives, detractors):
-    """Create distribution pie chart"""
-    labels = ['Promoters', 'Passives', 'Detractors']
-    values = [promoters, passives, detractors]
-    colors = ['#2E8B57', '#FFD700', '#DC143C']
+def calculate_nps(data, score_column):
+    """Calculate NPS from feedback data"""
+    if data.empty or score_column not in data.columns:
+        return {'score': 0, 'distribution': {'promoters': 0, 'passives': 0, 'detractors': 0}, 'total': 0}
     
-    fig = go.Figure(data=[go.Pie(
-        labels=labels, 
-        values=values,
-        marker_colors=colors,
-        textinfo='label+percent+value',
-        textfont_size=12
-    )])
+    promoters = passives = detractors = 0
     
-    fig.update_layout(
-        title="NPS Distribution",
-        height=400
-    )
-    return fig
+    for score in data[score_column]:
+        if pd.isna(score):
+            continue
+            
+        # Handle string scores
+        if isinstance(score, str):
+            score_lower = score.lower().strip()
+            if 'promoter' in score_lower or any(word in score_lower for word in ['excellent', 'outstanding', 'love']):
+                promoters += 1
+            elif 'passive' in score_lower or any(word in score_lower for word in ['okay', 'fine', 'average']):
+                passives += 1
+            elif 'detractor' in score_lower or any(word in score_lower for word in ['poor', 'bad', 'terrible']):
+                detractors += 1
+        # Handle numeric scores
+        else:
+            try:
+                score_num = float(score)
+                if score_num >= 9:
+                    promoters += 1
+                elif score_num >= 7:
+                    passives += 1
+                elif score_num >= 0:
+                    detractors += 1
+            except (ValueError, TypeError):
+                continue
+    
+    total = promoters + passives + detractors
+    nps_score = ((promoters - detractors) / total * 100) if total > 0 else 0
+    
+    return {
+        'score': round(nps_score, 1),
+        'distribution': {'promoters': promoters, 'passives': passives, 'detractors': detractors},
+        'total': total
+    }
 
-def create_sentiment_analysis_chart(df):
-    """Create sentiment analysis visualization"""
-    if 'sentiment_score' not in df.columns:
-        return None
+def generate_recommendations(analysis_data):
+    """Generate AI-powered recommendations"""
+    recommendations = []
+    nps = analysis_data['nps']
+    aspects = analysis_data['aspects']
     
-    # Categorize sentiments
-    df['sentiment_category'] = df['sentiment_score'].apply(
-        lambda x: 'Positive' if x > 0.1 else ('Negative' if x < -0.1 else 'Neutral')
-    )
+    # NPS-based recommendations
+    if nps['score'] < 0:
+        recommendations.append({
+            'title': "🚨 Critical: Address Detractor Concerns",
+            'priority': "HIGH",
+            'content': f"Your NPS of {nps['score']} indicates significant client dissatisfaction. Immediate action required to prevent churn.",
+            'impact': "Improving to positive NPS could reduce churn by up to 40% and increase referrals.",
+            'actions': [
+                "Schedule immediate calls with recent detractors",
+                "Implement emergency fixes for top 3 pain points",
+                "Create dedicated support channel for at-risk clients"
+            ]
+        })
+    elif nps['score'] < 30:
+        recommendations.append({
+            'title': "📈 Improve Client Satisfaction",
+            'priority': "MEDIUM",
+            'content': f"Your NPS of {nps['score']} is below industry average. Focus on converting passives to promoters.",
+            'impact': "Reaching NPS 50+ could increase client lifetime value by 25%.",
+            'actions': [
+                "Analyze passive feedback for improvement opportunities",
+                "Implement client success program",
+                "Regular check-ins with passive clients"
+            ]
+        })
     
-    sentiment_counts = df['sentiment_category'].value_counts()
+    # Aspect-based recommendations
+    if aspects:
+        negative_aspects = [(k, v) for k, v in aspects.items() if v['average_sentiment'] < -0.2 and v['count'] > 0]
+        negative_aspects.sort(key=lambda x: x[1]['average_sentiment'])
+        
+        if negative_aspects:
+            aspect_id, aspect_data = negative_aspects[0]
+            aspect = LEGAL_ASPECTS[aspect_id]
+            
+            recommendations.append({
+                'title': f"🔧 Fix {aspect['name']} Issues",
+                'priority': "HIGH" if aspect_data['average_sentiment'] < -0.5 else "MEDIUM",
+                'content': f"{aspect['name']} has the most negative sentiment ({aspect_data['average_sentiment']*100:.1f}%). This is your biggest opportunity for improvement.",
+                'impact': f"Fixing {aspect['name']} issues could improve overall NPS by 5-10 points.",
+                'actions': [
+                    f"Conduct user research on {aspect['name'].lower()}",
+                    f"Prioritize {aspect['name'].lower()} in next sprint",
+                    f"Create targeted communication about {aspect['name'].lower()} improvements"
+                ]
+            })
     
-    fig = go.Figure(data=[
-        go.Bar(
-            x=sentiment_counts.index,
-            y=sentiment_counts.values,
-            marker_color=['green', 'gray', 'red']
-        )
-    ])
+    # Add general recommendations if none found
+    if not recommendations:
+        recommendations.append({
+            'title': "✅ Maintain Excellence",
+            'priority': "LOW",
+            'content': "Your feedback analysis shows generally positive sentiment. Focus on maintaining current quality.",
+            'impact': "Continued excellence can lead to increased referrals and client retention.",
+            'actions': [
+                "Monitor feedback trends for early warning signs",
+                "Continue current best practices",
+                "Seek opportunities for incremental improvements"
+            ]
+        })
     
-    fig.update_layout(
-        title="Sentiment Analysis of Feedback",
-        xaxis_title="Sentiment",
-        yaxis_title="Count",
-        height=400
-    )
-    
-    return fig
+    return recommendations
 
-def generate_wordcloud(text_data):
-    """Generate word cloud from text data"""
-    try:
-        # Filter out empty/null values
-        valid_texts = []
-        for text in text_data:
-            if pd.notna(text) and str(text).strip() != '' and len(str(text).strip()) > 2:
-                valid_texts.append(str(text))
-        
-        if len(valid_texts) == 0:
-            return None
-        
-        # Combine all text
-        all_text = ' '.join(valid_texts)
-        
-        if len(all_text.strip()) < 10:
-            return None
-        
-        # Generate word cloud
-        wordcloud = WordCloud(
-            width=800, 
-            height=400, 
-            background_color='white',
-            max_words=100,
-            colormap='viridis',
-            collocations=False,
-            relative_scaling=0.5
-        ).generate(all_text)
-        
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(wordcloud, interpolation='bilinear')
-        ax.axis('off')
-        plt.tight_layout(pad=0)
-        return fig
+def create_sample_data():
+    """Create sample legal feedback data for demonstration"""
+    sample_feedback = [
+        {"feedback": "The case search functionality is excellent and very intuitive. Love the Boolean search capabilities.", "score": 9, "client_type": "small"},
+        {"feedback": "Citation management is terrible. The Bluebook formatting is completely wrong and unreliable.", "score": 3, "client_type": "large"},
+        {"feedback": "Document upload is slow and crashes frequently. Very frustrating for our daily workflow.", "score": 4, "client_type": "medium"},
+        {"feedback": "The user interface is clean and professional. Easy to navigate and find what we need.", "score": 8, "client_type": "solo"},
+        {"feedback": "Billing integration with our time tracking is a game-changer. Saves hours every week.", "score": 10, "client_type": "large"},
+        {"feedback": "Search results are often outdated and inaccurate. Missing recent case law updates.", "score": 2, "client_type": "medium"},
+        {"feedback": "Overall good product but the performance is slow during peak hours.", "score": 7, "client_type": "small"},
+        {"feedback": "Compliance features are comprehensive and help with GDPR requirements. Very valuable.", "score": 9, "client_type": "large"},
+        {"feedback": "The API integration is broken and doesn't sync properly with Outlook.", "score": 3, "client_type": "medium"},
+        {"feedback": "Great tool for legal research. The AI-powered summaries are particularly helpful.", "score": 9, "client_type": "solo"},
+        {"feedback": "Document management is confusing and not intuitive. Need better organization.", "score": 5, "client_type": "small"},
+        {"feedback": "Citation tracking is fantastic. Automatically updates and very accurate.", "score": 8, "client_type": "large"},
+        {"feedback": "System crashes during important presentations. Completely unreliable.", "score": 1, "client_type": "medium"},
+        {"feedback": "User interface could be more modern but functionality is solid.", "score": 7, "client_type": "solo"},
+        {"feedback": "The search feature is revolutionary for our practice. Saves tremendous time.", "score": 10, "client_type": "large"}
+    ]
     
-    except Exception as e:
-        st.warning(f"Word cloud generation failed: {e}")
-        return None
+    return pd.DataFrame(sample_feedback)
 
+# Main Streamlit App
 def main():
     # Header
-    st.markdown('<h1 class="main-header">🚀 Advanced NPS Analysis Platform</h1>', unsafe_allow_html=True)
-    
-    # Initialize analyzer
-    analyzer = NPSAnalyzer()
+    st.markdown("""
+    <div class="main-header">
+        <h1>⚖️ Legal Feedback Intelligence Hub</h1>
+        <p>AI-Powered Client Sentiment Analysis & Predictive Insights</p>
+    </div>
+    """, unsafe_allow_html=True)
     
     # Sidebar
-    st.sidebar.title("📊 Data Upload")
-    uploaded_file = st.sidebar.file_uploader(
-        "Choose a CSV file",
-        type="csv",
-        help="Upload your NPS data with 'score' and 'feedback' columns"
+    st.sidebar.title("📊 Dashboard Controls")
+    
+    # File upload or sample data
+    data_option = st.sidebar.radio(
+        "Choose Data Source:",
+        ["Upload CSV File", "Use Sample Data"]
     )
     
-    if uploaded_file is not None:
-        # Load data
-        if analyzer.load_data(uploaded_file):
-            df = analyzer.df
-            
-            # Validate data
-            is_valid, missing_columns = analyzer.validate_data(df)
-            
-            if not is_valid:
-                st.error(f"❌ Missing required columns: {missing_columns}")
-                st.info("📋 Your CSV should have 'score' and 'feedback' columns")
-                return
-            
-            st.success("✅ Data loaded successfully!")
-            
-            # Show data preview
-            with st.expander("📋 Data Preview"):
-                st.dataframe(df.head(10))
-                st.write(f"**Total responses:** {len(df)}")
-            
-            # Calculate NPS from categories
+    df = None
+    
+    if data_option == "Upload CSV File":
+        uploaded_file = st.sidebar.file_uploader(
+            "Upload your feedback CSV",
+            type=['csv'],
+            help="CSV should contain columns: 'feedback' (text) and 'score' (number or text)"
+        )
+        
+        if uploaded_file is not None:
             try:
-                nps_score, promoters_count, passives_count, detractors_count, conf_lower, conf_upper, margin_error = analyzer.calculate_nps_from_categories(df['score'])
+                df = pd.read_csv(uploaded_file)
+                st.sidebar.success(f"✅ Loaded {len(df)} feedback entries")
+            except Exception as e:
+                st.sidebar.error(f"Error loading file: {str(e)}")
+    else:
+        df = create_sample_data()
+        st.sidebar.info("📝 Using sample legal feedback data")
+    
+    if df is not None and not df.empty:
+        # Ensure required columns exist
+        feedback_col = None
+        score_col = None
+        
+        # Try to find feedback column
+        for col in df.columns:
+            if any(term in col.lower() for term in ['feedback', 'comment', 'text', 'review']):
+                feedback_col = col
+                break
+        
+        # Try to find score column
+        for col in df.columns:
+            if any(term in col.lower() for term in ['score', 'rating', 'nps']):
+                score_col = col
+                break
+        
+        if feedback_col is None:
+            feedback_col = st.sidebar.selectbox("Select feedback column:", df.columns)
+        
+        if score_col is None:
+            score_col = st.sidebar.selectbox("Select score column:", df.columns)
+        
+        # Filters
+        st.sidebar.subheader("🔍 Filters")
+        
+        client_filter = "All"
+        if 'client_type' in df.columns:
+            client_types = ['All'] + list(df['client_type'].unique())
+            client_filter = st.sidebar.selectbox("Client Type:", client_types)
+        
+        # Process data
+        analyzer = LegalSentimentAnalyzer()
+        
+        # Filter data
+        filtered_df = df.copy()
+        if client_filter != "All" and 'client_type' in df.columns:
+            filtered_df = filtered_df[filtered_df['client_type'] == client_filter]
+        
+        # Analyze sentiment and aspects
+        with st.spinner("🤖 Analyzing feedback with AI..."):
+            sentiment_results = []
+            aspect_results = []
+            
+            for _, row in filtered_df.iterrows():
+                sentiment = analyzer.analyze_sentiment(row[feedback_col])
+                aspects = analyzer.extract_aspects(row[feedback_col])
                 
-                # Main metrics
-                col1, col2, col3, col4 = st.columns(4)
+                sentiment_results.append(sentiment)
+                aspect_results.append(aspects)
+            
+            filtered_df['sentiment_score'] = [r['score'] for r in sentiment_results]
+            filtered_df['sentiment_label'] = [r['label'] for r in sentiment_results]
+            filtered_df['sentiment_confidence'] = [r['confidence'] for r in sentiment_results]
+            filtered_df['aspects'] = aspect_results
+        
+        # Calculate metrics
+        nps_result = calculate_nps(filtered_df, score_col)
+        avg_sentiment = filtered_df['sentiment_score'].mean()
+        
+        # Aggregate aspect data
+        aspect_data = {}
+        for aspect_id in LEGAL_ASPECTS.keys():
+            aspect_data[aspect_id] = {
+                'count': 0,
+                'total_sentiment': 0,
+                'average_sentiment': 0,
+                'feedback_items': []
+            }
+        
+        for _, row in filtered_df.iterrows():
+            for aspect in row['aspects']:
+                if aspect['id'] in aspect_data:
+                    aspect_data[aspect['id']]['count'] += 1
+                    aspect_data[aspect['id']]['total_sentiment'] += aspect['sentiment']
+                    aspect_data[aspect['id']]['feedback_items'].append(row)
+        
+        # Calculate averages
+        for aspect_id in aspect_data:
+            data = aspect_data[aspect_id]
+            data['average_sentiment'] = data['total_sentiment'] / data['count'] if data['count'] > 0 else 0
+        
+        # Create analysis object
+        analysis_data = {
+            'nps': nps_result,
+            'aspects': aspect_data,
+            'processed_feedback': filtered_df
+        }
+        
+        # Display Dashboard
+        st.header("📊 Executive Dashboard")
+        
+        # Key Metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h2>{nps_result['score']}</h2>
+                <p>Net Promoter Score</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <h2>{avg_sentiment*100:.1f}%</h2>
+                <p>Avg Sentiment Score</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            total_feedback = len(filtered_df)
+            st.markdown(f"""
+            <div class="metric-card">
+                <h2>{total_feedback}</h2>
+                <p>Total Feedback</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            urgent_count = len(filtered_df[filtered_df['sentiment_score'] < -0.5])
+            st.markdown(f"""
+            <div class="metric-card">
+                <h2>{urgent_count}</h2>
+                <p>Urgent Issues</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # NPS Gauge Chart
+        st.subheader("🎯 NPS Performance")
+        
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number+delta",
+            value = nps_result['score'],
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "Net Promoter Score"},
+            delta = {'reference': 0},
+            gauge = {
+                'axis': {'range': [-100, 100]},
+                'bar': {'color': "darkgreen" if nps_result['score'] > 0 else "darkred"},
+                'steps': [
+                    {'range': [-100, 0], 'color': "lightcoral"},
+                    {'range': [0, 50], 'color': "lightyellow"},
+                    {'range': [50, 100], 'color': "lightgreen"}
+                ],
+                'threshold': {
+                    'line': {'color': "red", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 50
+                }
+            }
+        ))
+        
+        fig_gauge.update_layout(height=400)
+        st.plotly_chart(fig_gauge, use_container_width=True)
+        
+        # Tabs for detailed analysis
+        tab1, tab2, tab3, tab4 = st.tabs(["🔍 Aspect Analysis", "📈 Sentiment Trends", "💡 AI Recommendations", "📝 Feedback Details"])
+        
+        with tab1:
+            st.subheader("Legal Aspect-Based Sentiment Analysis")
+            
+            # Aspect sentiment chart
+            aspects_with_data = [(k, v) for k, v in aspect_data.items() if v['count'] > 0]
+            
+            if aspects_with_data:
+                aspect_names = [LEGAL_ASPECTS[k]['name'] for k, _ in aspects_with_data]
+                aspect_sentiments = [v['average_sentiment'] * 100 for _, v in aspects_with_data]
+                aspect_counts = [v['count'] for _, v in aspects_with_data]
                 
-                with col1:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h3>NPS Score</h3>
-                        <h2>{nps_score:.1f}</h2>
-                    </div>
-                    """, unsafe_allow_html=True)
+                fig_aspects = make_subplots(specs=[[{"secondary_y": True}]])
                 
-                with col2:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h3>Promoters</h3>
-                        <h2>{promoters_count}</h2>
-                    </div>
-                    """, unsafe_allow_html=True)
+                # Bar chart for sentiment
+                fig_aspects.add_trace(
+                    go.Bar(
+                        x=aspect_names,
+                        y=aspect_sentiments,
+                        name="Sentiment Score (%)",
+                        marker_color=['green' if s > 0 else 'red' if s < -20 else 'orange' for s in aspect_sentiments]
+                    ),
+                    secondary_y=False
+                )
                 
-                with col3:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h3>Passives</h3>
-                        <h2>{passives_count}</h2>
-                    </div>
-                    """, unsafe_allow_html=True)
+                # Line chart for volume
+                fig_aspects.add_trace(
+                    go.Scatter(
+                        x=aspect_names,
+                        y=aspect_counts,
+                        mode='lines+markers',
+                        name="Mention Count",
+                        line=dict(color='blue', width=3),
+                        marker=dict(size=8)
+                    ),
+                    secondary_y=True
+                )
                 
-                with col4:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h3>Detractors</h3>
-                        <h2>{detractors_count}</h2>
-                    </div>
-                    """, unsafe_allow_html=True)
+                fig_aspects.update_xaxes(title_text="Legal Aspects")
+                fig_aspects.update_yaxes(title_text="Sentiment Score (%)", secondary_y=False)
+                fig_aspects.update_yaxes(title_text="Mention Count", secondary_y=True)
+                fig_aspects.update_layout(title="Aspect Sentiment vs Volume Analysis", height=500)
                 
-                # Charts
-                col1, col2 = st.columns(2)
+                st.plotly_chart(fig_aspects, use_container_width=True)
                 
-                with col1:
-                    st.plotly_chart(create_nps_gauge(nps_score), use_container_width=True)
+                # Aspect details
+                st.subheader("📋 Aspect Details")
+                for aspect_id, aspect_data_item in aspects_with_data:
+                    aspect = LEGAL_ASPECTS[aspect_id]
+                    sentiment_color = "🟢" if aspect_data_item['average_sentiment'] > 0.1 else "🔴" if aspect_data_item['average_sentiment'] < -0.1 else "🟡"
+                    
+                    with st.expander(f"{sentiment_color} {aspect['icon']} {aspect['name']} - {aspect_data_item['average_sentiment']*100:.1f}% sentiment"):
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("Mentions", aspect_data_item['count'])
+                        with col2:
+                            st.metric("Avg Sentiment", f"{aspect_data_item['average_sentiment']*100:.1f}%")
+                        
+                        # Show sample feedback for this aspect
+                        if aspect_data_item['feedback_items']:
+                            st.write("**Sample Feedback:**")
+                            sample_feedback = aspect_data_item['feedback_items'][:3]
+                            for item in sample_feedback:
+                                sentiment_emoji = "😊" if item['sentiment_score'] > 0.1 else "😞" if item['sentiment_score'] < -0.1 else "😐"
+                                st.write(f"{sentiment_emoji} *{item[feedback_col][:200]}...*")
+        
+        with tab2:
+            st.subheader("📈 Sentiment Distribution")
+            
+            # Sentiment distribution
+            sentiment_counts = filtered_df['sentiment_label'].value_counts()
+            
+            fig_pie = px.pie(
+                values=sentiment_counts.values,
+                names=sentiment_counts.index,
+                title="Sentiment Distribution",
+                color_discrete_map={
+                    'positive': '#28a745',
+                    'negative': '#dc3545',
+                    'neutral': '#ffc107'
+                }
+            )
+            
+            st.plotly_chart(fig_pie, use_container_width=True)
+            
+            # Sentiment vs Score correlation
+            if score_col in filtered_df.columns:
+                fig_scatter = px.scatter(
+                    filtered_df,
+                    x='sentiment_score',
+                    y=score_col,
+                    color='sentiment_label',
+                    title="Sentiment Score vs NPS Rating",
+                    labels={'sentiment_score': 'AI Sentiment Score', score_col: 'NPS Score'},
+                    color_discrete_map={
+                        'positive': '#28a745',
+                        'negative': '#dc3545',
+                        'neutral': '#ffc107'
+                    }
+                )
                 
-                with col2:
-                    st.plotly_chart(create_distribution_chart(promoters_count, passives_count, detractors_count), use_container_width=True)
+                st.plotly_chart(fig_scatter, use_container_width=True)
+        
+        with tab3:
+            st.subheader("💡 AI-Generated Recommendations")
+            
+            recommendations = generate_recommendations(analysis_data)
+            
+            for i, rec in enumerate(recommendations):
+                priority_color = "#dc3545" if rec['priority'] == "HIGH" else "#ffc107" if rec['priority'] == "MEDIUM" else "#28a745"
                 
-                # Confidence interval
                 st.markdown(f"""
-                <div class="insight-box">
-                    <h4>📊 Statistical Confidence</h4>
-                    <p>NPS Score: <strong>{nps_score:.1f}</strong></p>
-                    <p>95% Confidence Interval: <strong>{conf_lower:.1f} to {conf_upper:.1f}</strong></p>
-                    <p>Margin of Error: <strong>±{margin_error:.1f}</strong></p>
+                <div class="recommendation-card">
+                    <h3>{rec['title']} <span style="background: {priority_color}; color: white; padding: 3px 8px; border-radius: 10px; font-size: 0.8em;">{rec['priority']} PRIORITY</span></h3>
+                    <p><strong>Analysis:</strong> {rec['content']}</p>
+                    <p><strong>Expected Impact:</strong> {rec['impact']}</p>
+                    <p><strong>Recommended Actions:</strong></p>
+                    <ul>
+                        {''.join([f'<li>{action}</li>' for action in rec['actions']])}
+                    </ul>
                 </div>
                 """, unsafe_allow_html=True)
-                
-                # Sentiment Analysis
-                st.subheader("💭 Sentiment Analysis")
-                
-                with st.spinner("Analyzing sentiment..."):
-                    sentiments = analyzer.analyze_sentiment(df['feedback'])
-                    df['sentiment_score'] = sentiments
-                
-                sentiment_chart = create_sentiment_analysis_chart(df)
-                if sentiment_chart:
-                    st.plotly_chart(sentiment_chart, use_container_width=True)
-                
-                # Key Themes Analysis
-                st.subheader("🔍 Key Themes in Feedback")
-                
-                with st.spinner("Extracting key themes..."):
-                    themes = analyzer.get_key_themes(df['feedback'])
-                
-                if themes:
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.write("**Top Themes:**")
-                        for i, (theme, score) in enumerate(themes[:10], 1):
-                            st.write(f"{i}. {theme} (Score: {score:.3f})")
-                    
-                    with col2:
-                        # Theme visualization
-                        theme_names = [theme[0] for theme in themes[:10]]
-                        theme_scores = [theme[1] for theme in themes[:10]]
-                        
-                        fig = go.Figure(data=[
-                            go.Bar(x=theme_scores, y=theme_names, orientation='h')
-                        ])
-                        fig.update_layout(
-                            title="Top Themes by Importance",
-                            height=400
-                        )
-                        st.plotly_chart(fig, use_container_width=True)
-                
-                # Word Cloud
-                st.subheader("☁️ Feedback Word Cloud")
-                wordcloud_fig = generate_wordcloud(df['feedback'])
-                if wordcloud_fig:
-                    st.pyplot(wordcloud_fig)
-                else:
-                    st.info("Not enough text data to generate word cloud")
-                
-                # Detailed Feedback Analysis
-                st.subheader("📝 Detailed Feedback Analysis")
-                
-                # Filter by category
-                category_filter = st.selectbox(
-                    "Filter by NPS Category:",
-                    ["All", "Promoters", "Passives", "Detractors"]
+        
+        with tab4:
+            st.subheader("📝 Detailed Feedback Analysis")
+            
+            # Filters for feedback
+            col1, col2 = st.columns(2)
+            with col1:
+                sentiment_filter = st.selectbox(
+                    "Filter by Sentiment:",
+                    ["All", "Positive", "Negative", "Neutral"]
                 )
-                
-                if category_filter != "All":
-                    filtered_df = df[df['score'].astype(str).str.lower().str.contains(category_filter.lower()[:-1], na=False)]
-                else:
-                    filtered_df = df
-                
-                # Show filtered feedback
-                if len(filtered_df) > 0:
-                    st.write(f"**Showing {len(filtered_df)} responses**")
-                    
-                    for idx, row in filtered_df.head(10).iterrows():
-                        sentiment_emoji = "😊" if row.get('sentiment_score', 0) > 0.1 else ("😔" if row.get('sentiment_score', 0) < -0.1 else "😐")
-                        
-                        st.markdown(f"""
-                        <div style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px;">
-                            <strong>{row['score']}</strong> {sentiment_emoji}
-                            <p>{row['feedback']}</p>
-                            <small>Sentiment Score: {row.get('sentiment_score', 0):.3f}</small>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("No responses found for the selected category.")
-                
-                # Download processed data
-                st.subheader("💾 Download Processed Data")
-                
-                processed_df = df.copy()
-                if 'sentiment_score' in processed_df.columns:
-                    processed_df['sentiment_category'] = processed_df['sentiment_score'].apply(
-                        lambda x: 'Positive' if x > 0.1 else ('Negative' if x < -0.1 else 'Neutral')
-                    )
-                
-                csv = processed_df.to_csv(index=False)
-                st.download_button(
-                    label="📥 Download Analysis Results",
-                    data=csv,
-                    file_name=f"nps_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                    mime="text/csv"
+            
+            with col2:
+                sort_by = st.selectbox(
+                    "Sort by:",
+                    ["Sentiment Score", "Confidence", "Original Order"]
                 )
+            
+            # Apply filters
+            display_df = filtered_df.copy()
+            
+            if sentiment_filter != "All":
+                display_df = display_df[display_df['sentiment_label'] == sentiment_filter.lower()]
+            
+            # Sort
+            if sort_by == "Sentiment Score":
+                display_df = display_df.sort_values('sentiment_score')
+            elif sort_by == "Confidence":
+                display_df = display_df.sort_values('sentiment_confidence', ascending=False)
+            
+            # Display feedback items
+            for _, row in display_df.head(20).iterrows():
+                sentiment_emoji = "😊" if row['sentiment_score'] > 0.1 else "😞" if row['sentiment_score'] < -0.1 else "😐"
+                confidence_stars = "⭐" * min(5, int(row['sentiment_confidence'] * 5))
                 
-            except Exception as e:
-                st.error(f"Analysis failed: {e}")
-                st.info("Please check your data format. The 'score' column should contain: 'promoters', 'passive', or 'detractors'")
+                with st.expander(f"{sentiment_emoji} Score: {row[score_col]} | Sentiment: {row['sentiment_score']*100:.1f}% | Confidence: {confidence_stars}"):
+                    st.write(f"**Feedback:** {row[feedback_col]}")
+                    
+                    if row['aspects']:
+                        st.write("**Detected Aspects:**")
+                        for aspect in row['aspects']:
+                            aspect_sentiment_emoji = "😊" if aspect['sentiment'] > 0.1 else "😞" if aspect['sentiment'] < -0.1 else "😐"
+                            st.write(f"- {aspect['icon']} {aspect['name']}: {aspect_sentiment_emoji} {aspect['sentiment']*100:.1f}%")
+                    
+                    if 'client_type' in row:
+                        st.write(f"**Client Type:** {row['client_type']}")
     
     else:
-        # Instructions
+        st.info("👆 Please upload a CSV file or select 'Use Sample Data' to begin analysis.")
+        
         st.markdown("""
-        ## 📋 How to Use This Platform
+        ### 📋 CSV Format Requirements
         
-        1. **Prepare your CSV file** with these columns:
-           - `score`: Contains "promoters", "passive", or "detractors"
-           - `feedback`: Customer feedback text
+        Your CSV file should contain at least these columns:
+        - **feedback/comment/text**: The actual feedback text
+        - **score/rating/nps**: Numeric score (0-10) or text (promoter/passive/detractor)
         
-        2. **Upload your file** using the sidebar
+        Optional columns:
+        - **client_type**: Type of client (solo, small, medium, large)
+        - **date**: Date of feedback
         
-        3. **View comprehensive analysis** including:
-           - NPS Score calculation
-           - Distribution charts
-           - Sentiment analysis
-           - Key themes extraction
-           - Word clouds
-           - Detailed feedback review
+        ### 🎯 Features
         
-        ### 📊 Sample Data Format:
-        ```
-        score,feedback
-        promoters,Great service! Very satisfied
-        passive,It was okay, nothing special
-        detractors,Poor experience, disappointed
-        ```
+        This Legal Feedback Intelligence Hub provides:
         
-        ### 🎯 Features:
-        - **Real-time NPS calculation** from categorized data
-        - **Sentiment analysis** of feedback text
-        - **Key themes extraction** using TF-IDF
-        - **Interactive visualizations**
-        - **Statistical confidence intervals**
-        - **Downloadable results**
+        - **🔍 Aspect-Based Analysis**: Identifies sentiment for specific legal product areas
+        - **⚖️ Legal Domain Intelligence**: Understands legal terminology and context  
+        - **📊 Predictive Insights**: NPS calculation and trend analysis
+        - **💡 AI Recommendations**: Actionable suggestions based on data patterns
+        - **📈 Interactive Visualizations**: Charts and graphs for easy interpretation
+        - **🎯 Client Segmentation**: Analysis by firm size and client type
         """)
 
 if __name__ == "__main__":
