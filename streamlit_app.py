@@ -381,9 +381,6 @@ def main():
     col3.metric(label="⚠️ Detractors", value=nps_metrics['detractors'], delta=f"{nps_metrics['detractor_rate']:.1f}%")
     col4.metric(label="📝 Total Responses", value=nps_metrics['total_responses'], delta="Last 30 days")
 
-    # You could also show an NPS gauge chart:
-    # st.plotly_chart(create_nps_gauge(nps_metrics['nps_score']), use_container_width=True)
-
     # Create tabs for different analysis sections
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🔍 Aspect Analysis", "📈 Sentiment Trends",
@@ -469,7 +466,7 @@ def main():
                 title="NPS Score by Sentiment Category",
                 color_discrete_map={'positive': '#2E8B57', 'neutral': '#DAA520', 'negative': '#DC143C'}
             )
-            fig_box.update_traces(quartilemethod="inclusive")  # To avoid any warnings
+            fig_box.update_traces(quartilemethod="inclusive")
             st.plotly_chart(fig_box, use_container_width=True)
 
     # Tab 3: AI Recommendations
@@ -580,34 +577,42 @@ def main():
     with tab5:
         st.subheader("✉️ Email/Transcript Analysis")
         st.write("Paste the text of a client email or conversation transcript below to analyze its sentiment and key aspects:")
-        # Use session state to persist input text (for example loading)
+        
+        # Use session state to persist input text
         if "input_text" not in st.session_state:
             st.session_state.input_text = ""
+        
         user_text = st.text_area(
             "Enter email or transcript text:",
             value=st.session_state.input_text,
             placeholder="Paste your email content or call transcript here...",
             height=150
         )
+        
         analyze_button = st.button("Analyze Text", type="primary")
+        
         if analyze_button:
             if not user_text or not user_text.strip():
                 st.warning("Please enter some text to analyze.")
             else:
-                # Save current input to session state (so it persists if user switches tabs)
+                # Save current input to session state
                 st.session_state.input_text = user_text
+                
                 with st.spinner("Analyzing text..."):
                     result = analyzer.analyze_sentiment(user_text)
                     aspects_found = analyzer.extract_aspects(user_text)
+                
                 # Display Overall Sentiment
                 st.subheader("📊 Analysis Results")
                 sentiment_label = result['label']
                 sentiment_score = result['score']
                 confidence_pct = result['confidence'] * 100
                 emoji = "😊" if sentiment_label == "positive" else "😞" if sentiment_label == "negative" else "😐"
+                
                 # Colored container for overall sentiment
                 bg_color = '#d4edda' if sentiment_label == 'positive' else '#f8d7da' if sentiment_label == 'negative' else '#fff3cd'
                 border_color = '#c3e6cb' if sentiment_label == 'positive' else '#f5c6cb' if sentiment_label == 'negative' else '#ffeeba'
+                
                 container_html = f"""
                 <div style="padding: 15px; border-radius: 8px; background-color: {bg_color}; 
                             border: 1px solid {border_color}; margin-bottom: 1rem;">
@@ -617,25 +622,28 @@ def main():
                 </div>
                 """
                 st.markdown(container_html, unsafe_allow_html=True)
+                
                 # Mini gauge chart for sentiment score
                 gauge_fig = go.Figure(go.Indicator(
                     mode="gauge+number",
                     value=sentiment_score,
-                    number={'font': {'size': 48}, 'suffix': ""},  # no suffix, show raw score between -1 and 1
+                    number={'font': {'size': 48}, 'suffix': ""},
                     gauge={
                         'axis': {'range': [-1, 1], 'tickwidth': 1},
                         'bar': {'color': "black"},
                         'steps': [
-                            {'range': [-1, -0.1], 'color': "#F8D7DA"},   # red zone for negative
-                            {'range': [-0.1, 0.1], 'color': "#FFF3CD"},   # yellow zone for neutral
-                            {'range': [0.1, 1], 'color': "#D4EDDA"}      # green zone for positive
+                            {'range': [-1, -0.1], 'color': "#F8D7DA"},
+                            {'range': [-0.1, 0.1], 'color': "#FFF3CD"},
+                            {'range': [0.1, 1], 'color': "#D4EDDA"}
                         ],
                     }
                 ))
                 gauge_fig.update_layout(height=200, margin=dict(t=0, b=0, l=0, r=0))
                 st.plotly_chart(gauge_fig, use_container_width=True)
+                
                 # Display detected aspects
                 st.subheader("🔍 Detected Legal Aspects")
+                
                 if aspects_found:
                     st.write("The following aspects were mentioned and their sentiment context:")
                     for asp in aspects_found:
@@ -646,13 +654,15 @@ def main():
                         asp_score = asp['sentiment']
                         asp_label = "positive" if asp_score > 0.1 else "negative" if asp_score < -0.1 else "neutral"
                         asp_emoji = "😊" if asp_label == "positive" else "😞" if asp_label == "negative" else "😐"
+                        
                         expander_label = f"{asp_icon} {asp_name} — {asp_emoji} {asp_label.capitalize()} ({asp_score*100:.1f}%)"
                         with st.expander(expander_label):
                             st.write(f"**Context Snippet:** \"{asp_text}\"")
                             st.write(f"**Detected Keyword:** *{asp_keyword}*")
+                            
                             # Sentiment bar indicator
                             sentiment_color = "#28a745" if asp_score > 0.1 else "#dc3545" if asp_score < -0.1 else "#ffc107"
-                            bar_width = min(100, abs(asp_score) * 100)  # percentage width (cap at 100%)
+                            bar_width = min(100, abs(asp_score) * 100)
                             bar_html = f"""
                             <div style="background-color: #f0f0f0; border-radius: 5px; padding: 2px; margin-top: 5px; width: 100%;">
                                 <div style="background-color: {sentiment_color}; width: {bar_width}%; height: 8px; border-radius: 5px;"></div>
@@ -662,14 +672,17 @@ def main():
                 else:
                     st.info("No specific legal aspect keywords were detected in the text.")
                     st.write("The content might be general or not related to key product features.")
+                
                 # Quick insights metrics
                 st.subheader("💡 Quick Insights")
                 word_count = len(user_text.split())
-                reading_time = max(1, word_count // 200)  # approximate reading time in minutes
+                reading_time = max(1, word_count // 200)
+                
                 insight_col1, insight_col2, insight_col3 = st.columns(3)
                 insight_col1.metric("Word Count", word_count)
                 insight_col2.metric("Estimated Read Time", f"{reading_time} min")
                 insight_col3.metric("Aspects Detected", len(aspects_found))
+                
                 # Recommended action based on overall sentiment
                 if sentiment_label == "negative":
                     st.warning("**Recommended Action:** The sentiment is negative. Prioritize a prompt response and address the concerns mentioned.")
@@ -677,17 +690,19 @@ def main():
                     st.success("**Recommended Action:** The sentiment is positive. Consider following up for more details or a potential testimonial.")
                 else:
                     st.info("**Recommended Action:** The sentiment is neutral. Monitor for any specific questions or requests to address.")
+        
         # Example texts for quick testing
         st.subheader("📝 Example Texts to Try")
+        
         examples = {
             "Positive Client Email": "Hi team, I wanted to reach out and thank you for the excellent case search functionality. Our research time has been cut in half since implementing your system. The document management is also very intuitive and our whole firm adapted quickly. Great work!",
             "Negative Support Email": "I'm having serious issues with the billing module. It has been crashing repeatedly when I try to generate invoices, and the time tracking interface is confusing. This is affecting our ability to bill clients properly. Please help urgently.",
             "Mixed Feedback": "The legal research database is comprehensive and I love the integration with our case management. However, the system performance has been quite slow lately, especially during peak hours. The client portal works well though."
         }
+        
         for example_name, example_text in examples.items():
             if st.button(f"Load: {example_name}"):
                 st.session_state.input_text = example_text
-                # When a button is clicked, rerun will happen and the text area above will show this text.
 
 if __name__ == "__main__":
     main()
