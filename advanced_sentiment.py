@@ -2,10 +2,17 @@
 
 import spacy
 from transformers import pipeline
+import os
 
-# Load models (can be cached in main app)
+# Download spacy model if not present (for Streamlit Cloud)
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    from spacy.cli import download
+    download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
+
 sentiment_classifier = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
-nlp = spacy.load("en_core_web_sm")
 
 def analyze_advanced_sentiment(text):
     """Advanced sentiment with nuance detection"""
