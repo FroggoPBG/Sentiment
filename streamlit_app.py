@@ -204,7 +204,6 @@ def create_sentiment_analysis_chart(polarities, categories):
         yaxis_title="Count",
         height=400
     )
-    
     return fig
 
 def generate_wordcloud(text_data):
@@ -225,57 +224,67 @@ def generate_wordcloud(text_data):
     return fig
 
 def main():
-    # Header (always show)
+    # Always show header
     st.markdown('<h1 class="main-header">🚀 Advanced NPS Analysis Platform</h1>', unsafe_allow_html=True)
     
-    # Instructions (always show if no data)
+    # Always show instructions
     st.markdown("""
     ## 📋 How to Use
-    Upload a CSV with 'score' (promoter/passive/detractor) and 'feedback' columns to analyze.
+    Upload a CSV with 'score' (promoter/passive/detractor) and 'feedback' columns to analyze. Or use the sample data button below.
     """)
+    
+    # Sample data button (new for testing blank page)
+    if st.button("Use Sample Data"):
+        sample_data = {
+            'score': ['promoter', 'passive', 'detractor'],
+            'feedback': ['Great service!', 'Okay but expensive', 'Poor AI features']
+        }
+        df = pd.DataFrame(sample_data)
+        st.success("Sample data loaded!")
+    else:
+        df = None
     
     # Initialize analyzer
     analyzer = NPSAnalyzer()
     
-    # Sidebar (always show)
+    # Sidebar
     st.sidebar.title("📊 Data Upload")
     uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type="csv")
     
-    if uploaded_file is not None:
-        if analyzer.load_data(uploaded_file):
-            df = analyzer.df
-            is_valid, missing = analyzer.validate_data(df)
-            if not is_valid:
-                st.error(f"Missing columns: {missing}")
-                return
-            
-            # Calculate NPS (show results)
-            nps_score, promoters, passives, detractors, _, _, _ = analyzer.calculate_nps_from_categories(df['score'])
-            
-            # Sentiment analysis
-            polarities, categories, entities = analyzer.analyze_sentiment(df['feedback'])
-            
-            # Themes
-            themes = analyzer.get_key_themes(df['feedback'])
-            
-            # Display metrics
-            st.write("NPS Score:", nps_score)
-            
-            # Charts
-            st.plotly_chart(create_nps_gauge(nps_score))
-            st.plotly_chart(create_distribution_chart(promoters, passives, detractors))
-            st.plotly_chart(create_sentiment_analysis_chart(polarities, categories))
-            
-            # Word cloud
-            wc_fig = generate_wordcloud(df['feedback'])
-            if wc_fig:
-                st.pyplot(wc_fig)
-            else:
-                st.info("No word cloud generated - insufficient data.")
-            
-            # Add other sections as needed
-    else:
-        st.info("Please upload a file to see analysis.")
+    try:
+        if uploaded_file is not None:
+            if analyzer.load_data(uploaded_file):
+                df = analyzer.df
+                is_valid, missing = analyzer.validate_data(df)
+                if not is_valid:
+                    st.error(f"Missing columns: {missing}")
+                    return
+                
+                # Calculate NPS
+                nps_score, promoters, passives, detractors, _, _, _ = analyzer.calculate_nps_from_categories(df['score'])
+                
+                # Sentiment analysis
+                polarities, categories, entities = analyzer.analyze_sentiment(df['feedback'])
+                
+                # Themes
+                themes = analyzer.get_key_themes(df['feedback'])
+                
+                # Display
+                st.write("NPS Score:", nps_score)
+                st.plotly_chart(create_nps_gauge(nps_score))
+                st.plotly_chart(create_distribution_chart(promoters, passives, detractors))
+                st.plotly_chart(create_sentiment_analysis_chart(polarities, categories))
+                
+                # Word cloud
+                wc_fig = generate_wordcloud(df['feedback'])
+                if wc_fig:
+                    st.pyplot(wc_fig)
+                else:
+                    st.info("No word cloud generated - insufficient data.")
+                
+                # Add other sections...
+    except Exception as e:
+        st.error(f"Unexpected error: {str(e)}. Please check logs or try sample data.")
 
 if __name__ == "__main__":
     main()
