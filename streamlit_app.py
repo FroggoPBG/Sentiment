@@ -411,11 +411,11 @@ def main():
         )
     
     # Create tabs - Updated with the new fifth tab
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🔍 Aspect Analysis", "📈 Sentiment Trends", 
-        "💡 AI Recommendations", "📝 Feedback Details",
-        "✉️ Email/Transcript Analysis"
-    ])
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "🔍 Aspect Analysis", "📈 Sentiment Trends", 
+    "💡 AI Recommendations", "📝 Feedback Details",
+    "✉️ Email/Transcript Analysis"  # <-- This should be the new 5th tab
+])
     
     # Tab 1: Aspect Analysis
     with tab1:
