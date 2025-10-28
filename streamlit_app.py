@@ -76,7 +76,7 @@ class NPSAnalyzer:
     def calculate_nps_from_categories(self, score_column):
         """Calculate NPS from pre-categorized data"""
         # Normalize the categories (handle different capitalizations)
-        normalized_scores = score_column.str.lower().str.strip()
+        normalized_scores = score_column.astype(str).str.lower().str.strip()
         
         # Count each category
         promoters_count = normalized_scores.str.contains('promoter', na=False).sum()
@@ -109,7 +109,7 @@ class NPSAnalyzer:
         return nps_score, promoters_count, passives_count, detractors_count, conf_lower, conf_upper, margin_error
     
     def analyze_sentiment(self, text_column):
-        """Analyze sentiment of feedback text"""
+        """Analyze sentiment of feedback text using TextBlob"""
         sentiments = []
         
         for text in text_column:
@@ -157,7 +157,8 @@ class NPSAnalyzer:
             theme_scores.sort(key=lambda x: x[1], reverse=True)
             
             return theme_scores[:15]
-        except:
+        except Exception as e:
+            st.warning(f"Theme extraction failed: {e}")
             return []
 
 def create_nps_gauge(nps_score):
@@ -271,23 +272,7 @@ def generate_wordcloud(text_data):
         return fig
     
     except Exception as e:
-        # If word cloud fails, just return None
-        return None
-    
-    try:
-        wordcloud = WordCloud(
-            width=800, 
-            height=400, 
-            background_color='white',
-            max_words=100,
-            colormap='viridis'
-        ).generate(all_text)
-        
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.imshow(wordcloud, interpolation='bilinear')
-        ax.axis('off')
-        return fig
-    except:
+        st.warning(f"Word cloud generation failed: {e}")
         return None
 
 def main():
@@ -326,156 +311,161 @@ def main():
                 st.write(f"**Total responses:** {len(df)}")
             
             # Calculate NPS from categories
-            nps_score, promoters_count, passives_count, detractors_count, conf_lower, conf_upper, margin_error = analyzer.calculate_nps_from_categories(df['score'])
-            
-            # Main metrics
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3>NPS Score</h3>
-                    <h2>{nps_score:.1f}</h2>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3>Promoters</h3>
-                    <h2>{promoters_count}</h2>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col3:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3>Passives</h3>
-                    <h2>{passives_count}</h2>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with col4:
-                st.markdown(f"""
-                <div class="metric-card">
-                    <h3>Detractors</h3>
-                    <h2>{detractors_count}</h2>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            # Charts
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.plotly_chart(create_nps_gauge(nps_score), use_container_width=True)
-            
-            with col2:
-                st.plotly_chart(create_distribution_chart(promoters_count, passives_count, detractors_count), use_container_width=True)
-            
-            # Confidence interval
-            st.markdown(f"""
-            <div class="insight-box">
-                <h4>📊 Statistical Confidence</h4>
-                <p>NPS Score: <strong>{nps_score:.1f}</strong></p>
-                <p>95% Confidence Interval: <strong>{conf_lower:.1f} to {conf_upper:.1f}</strong></p>
-                <p>Margin of Error: <strong>±{margin_error:.1f}</strong></p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Sentiment Analysis
-            st.subheader("💭 Sentiment Analysis")
-            
-            with st.spinner("Analyzing sentiment..."):
-                sentiments = analyzer.analyze_sentiment(df['feedback'])
-                df['sentiment_score'] = sentiments
-            
-            sentiment_chart = create_sentiment_analysis_chart(df)
-            if sentiment_chart:
-                st.plotly_chart(sentiment_chart, use_container_width=True)
-            
-            # Key Themes Analysis
-            st.subheader("🔍 Key Themes in Feedback")
-            
-            with st.spinner("Extracting key themes..."):
-                themes = analyzer.get_key_themes(df['feedback'])
-            
-            if themes:
+            try:
+                nps_score, promoters_count, passives_count, detractors_count, conf_lower, conf_upper, margin_error = analyzer.calculate_nps_from_categories(df['score'])
+                
+                # Main metrics
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h3>NPS Score</h3>
+                        <h2>{nps_score:.1f}</h2>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col2:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h3>Promoters</h3>
+                        <h2>{promoters_count}</h2>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col3:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h3>Passives</h3>
+                        <h2>{passives_count}</h2>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with col4:
+                    st.markdown(f"""
+                    <div class="metric-card">
+                        <h3>Detractors</h3>
+                        <h2>{detractors_count}</h2>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # Charts
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    st.write("**Top Themes:**")
-                    for i, (theme, score) in enumerate(themes[:10], 1):
-                        st.write(f"{i}. {theme} (Score: {score:.3f})")
+                    st.plotly_chart(create_nps_gauge(nps_score), use_container_width=True)
                 
                 with col2:
-                    # Theme visualization
-                    theme_names = [theme[0] for theme in themes[:10]]
-                    theme_scores = [theme[1] for theme in themes[:10]]
-                    
-                    fig = go.Figure(data=[
-                        go.Bar(x=theme_scores, y=theme_names, orientation='h')
-                    ])
-                    fig.update_layout(
-                        title="Top Themes by Importance",
-                        height=400
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-            
-            # Word Cloud
-            st.subheader("☁️ Feedback Word Cloud")
-            wordcloud_fig = generate_wordcloud(df['feedback'])
-            if wordcloud_fig:
-                st.pyplot(wordcloud_fig)
-            else:
-                st.info("Not enough text data to generate word cloud")
-            
-            # Detailed Feedback Analysis
-            st.subheader("📝 Detailed Feedback Analysis")
-            
-            # Filter by category
-            category_filter = st.selectbox(
-                "Filter by NPS Category:",
-                ["All", "Promoters", "Passives", "Detractors"]
-            )
-            
-            if category_filter != "All":
-                filtered_df = df[df['score'].str.lower().str.contains(category_filter.lower()[:-1], na=False)]
-            else:
-                filtered_df = df
-            
-            # Show filtered feedback
-            if len(filtered_df) > 0:
-                st.write(f"**Showing {len(filtered_df)} responses**")
+                    st.plotly_chart(create_distribution_chart(promoters_count, passives_count, detractors_count), use_container_width=True)
                 
-                for idx, row in filtered_df.head(10).iterrows():
-                    sentiment_emoji = "😊" if row.get('sentiment_score', 0) > 0.1 else ("😔" if row.get('sentiment_score', 0) < -0.1 else "😐")
+                # Confidence interval
+                st.markdown(f"""
+                <div class="insight-box">
+                    <h4>📊 Statistical Confidence</h4>
+                    <p>NPS Score: <strong>{nps_score:.1f}</strong></p>
+                    <p>95% Confidence Interval: <strong>{conf_lower:.1f} to {conf_upper:.1f}</strong></p>
+                    <p>Margin of Error: <strong>±{margin_error:.1f}</strong></p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Sentiment Analysis
+                st.subheader("💭 Sentiment Analysis")
+                
+                with st.spinner("Analyzing sentiment..."):
+                    sentiments = analyzer.analyze_sentiment(df['feedback'])
+                    df['sentiment_score'] = sentiments
+                
+                sentiment_chart = create_sentiment_analysis_chart(df)
+                if sentiment_chart:
+                    st.plotly_chart(sentiment_chart, use_container_width=True)
+                
+                # Key Themes Analysis
+                st.subheader("🔍 Key Themes in Feedback")
+                
+                with st.spinner("Extracting key themes..."):
+                    themes = analyzer.get_key_themes(df['feedback'])
+                
+                if themes:
+                    col1, col2 = st.columns(2)
                     
-                    st.markdown(f"""
-                    <div style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px;">
-                        <strong>{row['score']}</strong> {sentiment_emoji}
-                        <p>{row['feedback']}</p>
-                        <small>Sentiment Score: {row.get('sentiment_score', 0):.3f}</small>
-                    </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("No responses found for the selected category.")
-            
-            # Download processed data
-            st.subheader("💾 Download Processed Data")
-            
-            processed_df = df.copy()
-            if 'sentiment_score' in processed_df.columns:
-                processed_df['sentiment_category'] = processed_df['sentiment_score'].apply(
-                    lambda x: 'Positive' if x > 0.1 else ('Negative' if x < -0.1 else 'Neutral')
+                    with col1:
+                        st.write("**Top Themes:**")
+                        for i, (theme, score) in enumerate(themes[:10], 1):
+                            st.write(f"{i}. {theme} (Score: {score:.3f})")
+                    
+                    with col2:
+                        # Theme visualization
+                        theme_names = [theme[0] for theme in themes[:10]]
+                        theme_scores = [theme[1] for theme in themes[:10]]
+                        
+                        fig = go.Figure(data=[
+                            go.Bar(x=theme_scores, y=theme_names, orientation='h')
+                        ])
+                        fig.update_layout(
+                            title="Top Themes by Importance",
+                            height=400
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                
+                # Word Cloud
+                st.subheader("☁️ Feedback Word Cloud")
+                wordcloud_fig = generate_wordcloud(df['feedback'])
+                if wordcloud_fig:
+                    st.pyplot(wordcloud_fig)
+                else:
+                    st.info("Not enough text data to generate word cloud")
+                
+                # Detailed Feedback Analysis
+                st.subheader("📝 Detailed Feedback Analysis")
+                
+                # Filter by category
+                category_filter = st.selectbox(
+                    "Filter by NPS Category:",
+                    ["All", "Promoters", "Passives", "Detractors"]
                 )
-            
-            csv = processed_df.to_csv(index=False)
-            st.download_button(
-                label="📥 Download Analysis Results",
-                data=csv,
-                file_name=f"nps_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-                mime="text/csv"
-            )
+                
+                if category_filter != "All":
+                    filtered_df = df[df['score'].astype(str).str.lower().str.contains(category_filter.lower()[:-1], na=False)]
+                else:
+                    filtered_df = df
+                
+                # Show filtered feedback
+                if len(filtered_df) > 0:
+                    st.write(f"**Showing {len(filtered_df)} responses**")
+                    
+                    for idx, row in filtered_df.head(10).iterrows():
+                        sentiment_emoji = "😊" if row.get('sentiment_score', 0) > 0.1 else ("😔" if row.get('sentiment_score', 0) < -0.1 else "😐")
+                        
+                        st.markdown(f"""
+                        <div style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px;">
+                            <strong>{row['score']}</strong> {sentiment_emoji}
+                            <p>{row['feedback']}</p>
+                            <small>Sentiment Score: {row.get('sentiment_score', 0):.3f}</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("No responses found for the selected category.")
+                
+                # Download processed data
+                st.subheader("💾 Download Processed Data")
+                
+                processed_df = df.copy()
+                if 'sentiment_score' in processed_df.columns:
+                    processed_df['sentiment_category'] = processed_df['sentiment_score'].apply(
+                        lambda x: 'Positive' if x > 0.1 else ('Negative' if x < -0.1 else 'Neutral')
+                    )
+                
+                csv = processed_df.to_csv(index=False)
+                st.download_button(
+                    label="📥 Download Analysis Results",
+                    data=csv,
+                    file_name=f"nps_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv"
+                )
+                
+            except Exception as e:
+                st.error(f"Analysis failed: {e}")
+                st.info("Please check your data format. The 'score' column should contain: 'promoters', 'passive', or 'detractors'")
     
     else:
         # Instructions
