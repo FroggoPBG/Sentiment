@@ -6,8 +6,6 @@ wordcloud
 matplotlib
 scikit-learn
 seaborn
-transformers
-spacy
-reportlab
-pytesseract
-pillow
+textblob
+spacy>=3.4.0
+https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.4.1/en_core_web_sm-3.4.1-py3-none-any.whl
