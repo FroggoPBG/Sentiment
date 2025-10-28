@@ -1,39 +1,61 @@
-# advanced_sentiment.py - Custom module for advanced sentiment analysis
+# advanced_sentiment.py - Lightweight sentiment analysis
 
 import spacy
-from transformers import pipeline
 import os
 
-# Download spacy model if not present (for Streamlit Cloud)
+# Try to load spacy model, fallback if not available
 try:
     nlp = spacy.load("en_core_web_sm")
+    SPACY_AVAILABLE = True
 except OSError:
-    from spacy.cli import download
-    download("en_core_web_sm")
-    nlp = spacy.load("en_core_web_sm")
-
-sentiment_classifier = pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
+    SPACY_AVAILABLE = False
+    nlp = None
 
 def analyze_advanced_sentiment(text):
-    """Advanced sentiment with nuance detection"""
+    """Advanced sentiment with fallback to simple analysis"""
     if not text or not isinstance(text, str) or len(text.strip()) < 3:
         return 0.0, "Neutral", []
     
-    # Get polarity and label
-    result = sentiment_classifier(text)[0]
-    polarity = result['score'] if result['label'] == 'POSITIVE' else -result['score']
-    
-    # Detect entities/themes
-    doc = nlp(text)
-    entities = [ent.text for ent in doc.ents if ent.label_ in ['ORG', 'PRODUCT', 'GPE']]
-    
-    # Simple nuance (e.g., detect negation for sarcasm-like flips)
-    category = 'Positive' if polarity > 0.1 else ('Negative' if polarity < -0.1 else 'Neutral')
-    if "not" in text.lower() and polarity > 0:
-        category = 'Mixed (Possible Sarcasm)'
-    
-    return polarity, category, entities
+    try:
+        # Simple sentiment analysis as fallback
+        from textblob import TextBlob
+        blob = TextBlob(text)
+        polarity = blob.sentiment.polarity
+        
+        # Determine category
+        if polarity > 0.1:
+            category = 'Positive'
+        elif polarity < -0.1:
+            category = 'Negative'
+        else:
+            category = 'Neutral'
+        
+        # Extract entities if spacy is available
+        entities = []
+        if SPACY_AVAILABLE and nlp:
+            try:
+                doc = nlp(text)
+                entities = [ent.text for ent in doc.ents if ent.label_ in ['ORG', 'PRODUCT', 'GPE']]
+            except:
+                entities = []
+        
+        # Detect potential sarcasm
+        if "not" in text.lower() and polarity > 0:
+            category = 'Mixed (Possible Sarcasm)'
+        
+        return polarity, category, entities
+        
+    except Exception as e:
+        # Ultimate fallback
+        return 0.0, "Neutral", []
 
 def batch_analyze(texts):
-    """Batch process multiple texts"""
-    return [analyze_advanced_sentiment(text) for text in texts]
+    """Batch process multiple texts with error handling"""
+    results = []
+    for text in texts:
+        try:
+            result = analyze_advanced_sentiment(text)
+            results.append(result)
+        except:
+            results.append((0.0, "Neutral", []))
+    return results
