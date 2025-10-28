@@ -1,9 +1,13 @@
 streamlit
 pandas
 plotly
-textblob
+numpy
 wordcloud
+matplotlib
 scikit-learn
 seaborn
-matplotlib
-numpy
+transformers
+spacy
+reportlab
+pytesseract
+pillow
