@@ -11,7 +11,7 @@ import seaborn as sns
 from datetime import datetime, timedelta
 import re
 from collections import Counter
-import advanced_sentiment  # Custom module (now fixed)
+import advanced_sentiment  # Custom module for advanced sentiment
 from sklearn.linear_model import LinearRegression
 import io
 from reportlab.lib.pagesizes import letter
@@ -186,7 +186,7 @@ def create_distribution_chart(promoters, passives, detractors):
     )
     return fig
 
-def create_sentiment_analysis_chart(df, polarities, categories):
+def create_sentiment_analysis_chart(polarities, categories):
     """Create sentiment analysis visualization"""
     sentiment_counts = pd.Series(categories).value_counts()
     
@@ -225,13 +225,20 @@ def generate_wordcloud(text_data):
     return fig
 
 def main():
-    # Header
+    # Header (always show)
     st.markdown('<h1 class="main-header">🚀 Advanced NPS Analysis Platform</h1>', unsafe_allow_html=True)
+    
+    # Instructions (always show if no data)
+    st.markdown("""
+    ## 📋 How to Use
+    Upload a CSV with 'score' (promoter/passive/detractor) and 'feedback' columns to analyze.
+    """)
     
     # Initialize analyzer
     analyzer = NPSAnalyzer()
     
-    # Sidebar
+    # Sidebar (always show)
+    st.sidebar.title("📊 Data Upload")
     uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type="csv")
     
     if uploaded_file is not None:
@@ -242,26 +249,33 @@ def main():
                 st.error(f"Missing columns: {missing}")
                 return
             
-            # Calculate NPS
+            # Calculate NPS (show results)
             nps_score, promoters, passives, detractors, _, _, _ = analyzer.calculate_nps_from_categories(df['score'])
             
-            # Advanced sentiment analysis
+            # Sentiment analysis
             polarities, categories, entities = analyzer.analyze_sentiment(df['feedback'])
-            df['sentiment_score'] = polarities
-            df['sentiment_category'] = categories
             
             # Themes
             themes = analyzer.get_key_themes(df['feedback'])
             
-            # Display
+            # Display metrics
             st.write("NPS Score:", nps_score)
-            st.plotly_chart(create_sentiment_analysis_chart(df, polarities, categories))
-            # Add other UI elements...
+            
+            # Charts
+            st.plotly_chart(create_nps_gauge(nps_score))
+            st.plotly_chart(create_distribution_chart(promoters, passives, detractors))
+            st.plotly_chart(create_sentiment_analysis_chart(polarities, categories))
             
             # Word cloud
             wc_fig = generate_wordcloud(df['feedback'])
             if wc_fig:
                 st.pyplot(wc_fig)
+            else:
+                st.info("No word cloud generated - insufficient data.")
+            
+            # Add other sections as needed
+    else:
+        st.info("Please upload a file to see analysis.")
 
 if __name__ == "__main__":
     main()
