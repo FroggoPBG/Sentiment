@@ -193,6 +193,433 @@ class LegalSentimentAnalyzer:
                     break  # Only record the first occurrence per aspect category
         return found_aspects
 
+class CommunicationStyleGenerator:
+    """Generate responses based on different communication styles."""
+    
+    def __init__(self):
+        self.styles = {
+            'doers': {
+                'name': 'Doers',
+                'icon': '⚡',
+                'description': 'Results-first, action-oriented, brief',
+                'characteristics': ['direct', 'concise', 'action-focused', 'time-sensitive']
+            },
+            'thinkers': {
+                'name': 'Thinkers', 
+                'icon': '🧠',
+                'description': 'Data-driven, structured, detailed',
+                'characteristics': ['analytical', 'thorough', 'evidence-based', 'logical']
+            },
+            'influencers': {
+                'name': 'Influencers',
+                'icon': '🌟', 
+                'description': 'Enthusiastic, people-focused, visionary',
+                'characteristics': ['inspiring', 'relationship-focused', 'optimistic', 'big-picture']
+            },
+            'connectors': {
+                'name': 'Connectors',
+                'icon': '🤝',
+                'description': 'Collaborative, team-beneficial, supportive',
+                'characteristics': ['inclusive', 'consensus-building', 'supportive', 'team-oriented']
+            }
+        }
+    
+    def generate_response(self, feedback_text, sentiment_result, style='doers'):
+        """Generate a response email/message based on communication style."""
+        sentiment = sentiment_result['label']
+        
+        if style == 'doers':
+            return self._generate_doers_response(feedback_text, sentiment)
+        elif style == 'thinkers':
+            return self._generate_thinkers_response(feedback_text, sentiment)
+        elif style == 'influencers':
+            return self._generate_influencers_response(feedback_text, sentiment)
+        elif style == 'connectors':
+            return self._generate_connectors_response(feedback_text, sentiment)
+        else:
+            return self._generate_doers_response(feedback_text, sentiment)
+    
+    def _generate_doers_response(self, feedback_text, sentiment):
+        """Generate action-oriented, brief response."""
+        if sentiment == 'positive':
+            return {
+                'subject': 'Action: Your Feedback - Next Steps',
+                'body': """Thank you for your feedback.
+
+KEY ACTIONS:
+• Documented your input ✓
+• Shared with product team ✓  
+• Will update you on improvements
+
+TIMELINE: Updates within 2 weeks.
+
+Questions? Reply directly.
+
+Best regards,
+Legal Software Team"""
+            }
+        elif sentiment == 'negative':
+            return {
+                'subject': 'URGENT: Resolving Your Concerns',
+                'body': """We've received your feedback and are taking immediate action.
+
+IMMEDIATE STEPS:
+• Technical team assigned
+• Priority escalation initiated
+• Direct support contact assigned
+
+NEXT: You'll hear from us within 24 hours with solutions.
+
+Contact: [Direct phone/email]
+
+Regards,
+Legal Software Team"""
+            }
+        else:
+            return {
+                'subject': 'Your Feedback - Action Plan',
+                'body': """Thank you for your input.
+
+ACTIONS TAKEN:
+• Feedback logged and categorized
+• Relevant teams notified
+• Improvement roadmap updated
+
+RESULT: Your suggestions will influence our Q1 updates.
+
+Best,
+Legal Software Team"""
+            }
+    
+    def _generate_thinkers_response(self, feedback_text, sentiment):
+        """Generate data-driven, structured response."""
+        if sentiment == 'positive':
+            return {
+                'subject': 'Feedback Analysis: Your Input & Our Data-Driven Response',
+                'body': """Dear Valued Client,
+
+Thank you for your detailed feedback. Here's our structured analysis and response:
+
+FEEDBACK ANALYSIS:
+• Sentiment Score: Positive
+• Key Themes Identified: [Performance, Usability, Value]
+• Alignment with User Base: 87% of similar feedback trends positive
+
+OUR DATA-DRIVEN APPROACH:
+1. Your feedback joins 200+ positive responses this quarter
+2. Specific features you mentioned rank in top 3 user satisfaction metrics
+3. ROI data shows 23% efficiency improvement for firms using these features
+
+NEXT STEPS:
+• Documentation of your use case for product enhancement
+• Inclusion in quarterly user satisfaction report
+• Invitation to beta test upcoming features
+
+METRICS TO TRACK:
+- Feature usage optimization
+- Performance benchmarking
+- User satisfaction correlation
+
+We appreciate your analytical approach to feedback.
+
+Sincerely,
+Legal Software Analytics Team"""
+            }
+        elif sentiment == 'negative':
+            return {
+                'subject': 'Technical Analysis: Issue Resolution Framework',
+                'body': """Dear Client,
+
+We've conducted a comprehensive analysis of your feedback:
+
+ISSUE CATEGORIZATION:
+• Problem Type: [Technical/Process/Interface]
+• Severity Level: High Priority
+• Impact Assessment: Critical to user workflow
+
+ROOT CAUSE ANALYSIS:
+1. Technical diagnostic completed
+2. User journey mapping reviewed  
+3. System performance metrics analyzed
+
+RESOLUTION METHODOLOGY:
+Phase 1: Immediate workaround (24-48 hrs)
+Phase 2: Systematic fix implementation (1-2 weeks)
+Phase 3: Prevention protocols activated
+
+METRICS & MONITORING:
+• Performance benchmarks established
+• User experience tracking implemented
+• Success criteria defined
+
+DOCUMENTATION PROVIDED:
+- Technical specifications
+- Timeline with milestones
+- Success measurement framework
+
+We'll provide weekly progress reports with quantifiable metrics.
+
+Best regards,
+Technical Resolution Team"""
+            }
+        else:
+            return {
+                'subject': 'Feedback Assessment: Structured Review & Response',
+                'body': """Dear Client,
+
+We've completed a systematic review of your feedback:
+
+ANALYSIS FRAMEWORK:
+• Content categorization completed
+• User journey impact assessed  
+• Feature utilization patterns reviewed
+
+STRUCTURED EVALUATION:
+1. Feedback classification: Mixed/Neutral sentiment
+2. Priority ranking based on user impact
+3. Resource allocation analysis completed
+
+SYSTEMATIC RESPONSE:
+Short-term (30 days):
+- Immediate improvements where feasible
+- User experience optimizations
+
+Medium-term (90 days):  
+- Feature enhancement roadmap
+- User training resource development
+
+Long-term (6 months):
+- Strategic product evolution
+- Advanced feature integration
+
+MEASUREMENT CRITERIA:
+• User satisfaction metrics
+• Feature adoption rates
+• Performance benchmarks
+
+We'll provide quarterly progress reports with detailed analytics.
+
+Respectfully,
+Product Strategy Team"""
+            }
+    
+    def _generate_influencers_response(self, feedback_text, sentiment):
+        """Generate enthusiastic, people-focused response."""
+        if sentiment == 'positive':
+            return {
+                'subject': '🌟 Amazing Feedback! Let\'s Amplify Your Success',
+                'body': """Hi there!
+
+WOW! Your feedback absolutely made our day! 🎉
+
+WHAT EXCITES US:
+Your success story is exactly why we're passionate about legal technology. When firms like yours thrive, the entire legal community benefits!
+
+AMPLIFYING YOUR SUCCESS:
+• Would love to feature your story (with permission)
+• Invite you to our user community champions program
+• Early access to exciting new features coming soon
+
+VISION ALIGNMENT:
+Your feedback reinforces our vision of transforming legal practice through innovative technology. Together, we're reshaping how legal professionals work!
+
+THE BIGGER PICTURE:
+Every positive experience like yours inspires us to push boundaries and create even more amazing solutions for the legal community.
+
+LET'S CONNECT:
+• Join our monthly user success showcases
+• Beta test revolutionary features launching Q1
+• Network with other legal innovation leaders
+
+Your enthusiasm is contagious - thank you for being part of our journey!
+
+With excitement,
+Legal Innovation Team 🚀"""
+            }
+        elif sentiment == 'negative':
+            return {
+                'subject': 'Turning Challenges Into Opportunities - We\'re Here for You!',
+                'body': """Hello,
+
+First, thank you for being honest about your experience. Your courage to share challenges helps us grow! 💪
+
+YOUR IMPACT:
+Every piece of feedback like yours is a stepping stone toward creating something truly extraordinary for the legal community.
+
+OUR COMMITMENT TO YOU:
+• Personal dedication from our leadership team
+• Direct line to our innovation experts
+• Exclusive access to immediate improvements
+
+TRANSFORMING CHALLENGES:
+We see this as an opportunity to:
+- Exceed your expectations
+- Strengthen our relationship  
+- Create solutions that benefit all legal professionals
+
+THE COMMUNITY SPIRIT:
+Your feedback joins thousands of legal professionals helping us build the future of legal technology together.
+
+IMMEDIATE SUPPORT:
+Our customer success champion will reach out personally within hours to turn this around!
+
+LOOKING FORWARD:
+We're confident this experience will become a success story we celebrate together.
+
+Your partner in legal innovation,
+Customer Success Leadership Team ✨"""
+            }
+        else:
+            return {
+                'subject': '🤝 Your Voice Matters - Building the Future Together',
+                'body': """Hello!
+
+Thank you for taking the time to share your perspective with us!
+
+WHY YOUR INPUT INSPIRES US:
+Every voice in our legal community shapes the future of legal technology. Your balanced feedback helps us stay grounded while reaching for the stars!
+
+COMMUNITY BUILDING:
+• Your insights join our collective wisdom
+• Helping us serve the legal profession better
+• Contributing to innovative solutions for all
+
+EXCITING OPPORTUNITIES:
+• Join our user advisory council
+• Influence our product roadmap
+• Connect with fellow legal innovators
+
+THE VISION WE SHARE:
+Together, we're creating technology that empowers legal professionals to focus on what matters most - serving clients and advancing justice.
+
+NEXT ADVENTURES:
+• Exclusive previews of upcoming features
+• Invitations to legal innovation events
+• Direct input on future developments
+
+Your participation in this journey means everything to us!
+
+With appreciation and excitement,
+Legal Community Team 🌟"""
+            }
+    
+    def _generate_connectors_response(self, feedback_text, sentiment):
+        """Generate collaborative, supportive response."""
+        if sentiment == 'positive':
+            return {
+                'subject': 'Thank You - Strengthening Our Partnership Together',
+                'body': """Dear Valued Partner,
+
+Your positive feedback strengthens our entire legal community, and we're grateful to have you as part of our extended family.
+
+COLLABORATIVE IMPACT:
+Your success contributes to the collective advancement of legal technology adoption across the profession.
+
+TEAM BENEFITS:
+• Your insights help us better serve all legal professionals
+• Your experience guides improvements that benefit everyone
+• Your partnership model success for other firms
+
+STRENGTHENING CONNECTIONS:
+• Share your success story with peer networks (with your permission)
+• Connect you with other successful implementation teams
+• Include you in our collaborative user community
+
+SUPPORTING OUR COMMUNITY:
+• Mentorship opportunities with firms beginning their journey
+• Participation in user support networks
+• Contribution to best practices documentation
+
+TOGETHER WE ACHIEVE MORE:
+Your feedback represents the collaborative spirit that makes our legal technology community thrive.
+
+CONTINUED PARTNERSHIP:
+• Regular check-ins to ensure ongoing success
+• Team-based support for any future needs
+• Collaborative planning for your firm's growth
+
+Thank you for being such a supportive partner in our shared mission.
+
+In partnership,
+Legal Technology Community Team"""
+            }
+        elif sentiment == 'negative':
+            return {
+                'subject': 'Working Together - Collaborative Problem Solving',
+                'body': """Dear Partner,
+
+Thank you for bringing these challenges to our attention. Strong partnerships are built on open communication and collaborative problem-solving.
+
+OUR TEAM APPROACH:
+• Dedicated cross-functional support team assigned
+• Collaborative issue resolution process initiated
+• Team-based solutions tailored to your needs
+
+SUPPORTING YOUR SUCCESS:
+Your challenges become our shared mission. We're committed to working together to find solutions that benefit not just your firm, but our entire user community.
+
+COLLABORATIVE SOLUTIONS:
+• Joint problem-solving sessions with your team
+• Peer network connections for shared experiences
+• Group training and support resources
+
+COMMUNITY STRENGTH:
+Your willingness to work with us through challenges strengthens the entire legal technology community and helps us serve everyone better.
+
+PARTNERSHIP COMMITMENT:
+• Regular check-ins with your implementation team
+• Collaborative timeline development
+• Shared success metrics and milestones
+
+BUILDING TOGETHER:
+Every challenge we solve together makes our entire community stronger and more resilient.
+
+We're honored to have you as a partner in this journey.
+
+In collaboration,
+Partnership Success Team"""
+            }
+        else:
+            return {
+                'subject': 'Growing Together - Collaborative Feedback Partnership',
+                'body': """Dear Community Partner,
+
+Thank you for sharing your thoughtful perspective. Balanced feedback like yours helps our entire legal technology community grow stronger together.
+
+COLLABORATIVE GROWTH:
+• Your insights contribute to our collective learning
+• Balanced perspective helps us serve diverse needs
+• Community-focused improvements benefit everyone
+
+TEAM-CENTERED APPROACH:
+• Include your feedback in collaborative planning sessions
+• Share anonymized insights with peer advisory groups
+• Integrate suggestions into community-driven roadmap
+
+SUPPORTING COLLECTIVE SUCCESS:
+• Connect you with peer networks for shared experiences
+• Invitation to collaborative user forums
+• Participation in team-based improvement initiatives
+
+PARTNERSHIP DEVELOPMENT:
+• Regular collaborative review sessions
+• Joint planning for future enhancements
+• Shared success measurement frameworks
+
+COMMUNITY BUILDING:
+Your balanced perspective helps us maintain focus on solutions that work for the entire legal profession.
+
+STRENGTHENING BONDS:
+• Ongoing partnership check-ins
+• Team-based support structures
+• Collaborative success planning
+
+Together, we create technology solutions that serve our entire legal community.
+
+In partnership and collaboration,
+Community Development Team"""
+            }
+
 def generate_sample_data():
     """Generate a sample dataframe of legal software feedback with realistic content."""
     np.random.seed(42)
@@ -318,8 +745,9 @@ def main():
     st.title("⚖️ Legal Feedback Intelligence Hub")
     st.markdown("**Advanced NPS Analysis & Sentiment Intelligence for Legal Software**")
 
-    # Initialize the sentiment analyzer
+    # Initialize the sentiment analyzer and communication generator
     analyzer = LegalSentimentAnalyzer()
+    comm_generator = CommunicationStyleGenerator()
 
     # Sidebar - Data upload and filtering
     st.sidebar.header("📊 Data Management")
@@ -367,10 +795,10 @@ def main():
     col4.metric(label="📝 Total Responses", value=nps_metrics['total_responses'])
 
     # Create tabs for different analysis sections
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🔍 Aspect Analysis", "📈 Sentiment Analysis",
         "💡 AI Recommendations", "📝 Feedback Details",
-        "✉️ Email/Transcript Analysis"
+        "✉️ Email/Transcript Analysis", "📧 Communication Styles"
     ])
 
     # Tab 1: Aspect Analysis
@@ -700,6 +1128,131 @@ def main():
         for example_name, example_text in examples.items():
             if st.button(f"Load: {example_name}"):
                 st.session_state.input_text = example_text
+
+    # Tab 6: Communication Style-Based Messaging
+    with tab6:
+        st.subheader("📧 Communication Style-Based Response Generator")
+        st.write("Generate personalized responses based on different communication preferences and styles.")
+        
+        # Input section
+        col_input1, col_input2 = st.columns([2, 1])
+        
+        with col_input1:
+            input_feedback = st.text_area(
+                "Client Feedback to Respond To:",
+                placeholder="Paste the client feedback you want to respond to...",
+                height=120,
+                key="comm_feedback_input"
+            )
+        
+        with col_input2:
+            st.write("**Select Communication Style:**")
+            selected_style = st.radio(
+                "Choose Style:",
+                options=['doers', 'thinkers', 'influencers', 'connectors'],
+                format_func=lambda x: f"{comm_generator.styles[x]['icon']} {comm_generator.styles[x]['name']} - {comm_generator.styles[x]['description']}"
+            )
+        
+        # Style descriptions
+        st.subheader("🎯 Communication Style Guide")
+        style_cols = st.columns(4)
+        
+        for i, (style_key, style_info) in enumerate(comm_generator.styles.items()):
+            with style_cols[i]:
+                is_selected = style_key == selected_style
+                border_style = "border: 3px solid #28a745;" if is_selected else "border: 1px solid #ddd;"
+                style_html = f"""
+                <div style="{border_style} padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+                    <h4>{style_info['icon']} {style_info['name']}</h4>
+                    <p><em>{style_info['description']}</em></p>
+                    <strong>Characteristics:</strong>
+                    <ul>
+                """
+                for char in style_info['characteristics']:
+                    style_html += f"<li>{char}</li>"
+                style_html += "</ul></div>"
+                st.markdown(style_html, unsafe_allow_html=True)
+        
+        # Generate response button
+        if st.button("Generate Response", type="primary", key="generate_comm_response"):
+            if not input_feedback or not input_feedback.strip():
+                st.warning("Please enter some feedback to respond to.")
+            else:
+                with st.spinner("Generating personalized response..."):
+                    # Analyze sentiment first
+                    sentiment_result = analyzer.analyze_sentiment(input_feedback)
+                    
+                    # Generate response based on style
+                    response = comm_generator.generate_response(
+                        input_feedback, sentiment_result, selected_style
+                    )
+                    
+                    # Display the generated response
+                    st.subheader(f"📧 Generated Response - {comm_generator.styles[selected_style]['icon']} {comm_generator.styles[selected_style]['name']} Style")
+                    
+                    # Response preview container
+                    with st.container():
+                        st.write("**Subject Line:**")
+                        st.code(response['subject'], language=None)
+                        
+                        st.write("**Email Body:**")
+                        st.text_area(
+                            "Response (editable):",
+                            value=response['body'],
+                            height=400,
+                            key="generated_response_editable"
+                        )
+                    
+                    # Action buttons
+                    response_col1, response_col2, response_col3 = st.columns(3)
+                    
+                    with response_col1:
+                        if st.button("📋 Copy to Clipboard", key="copy_response"):
+                            st.success("Response ready to copy! Use Ctrl+A, Ctrl+C on the text above.")
+                    
+                    with response_col2:
+                        # Download as text file
+                        response_text = f"Subject: {response['subject']}\n\n{response['body']}"
+                        st.download_button(
+                            label="📥 Download Response",
+                            data=response_text,
+                            file_name=f"response_{selected_style}_{pd.Timestamp.now().strftime('%Y%m%d_%H%M')}.txt",
+                            mime="text/plain",
+                            key="download_response"
+                        )
+                    
+                    with response_col3:
+                        if st.button("🔄 Generate Alternative", key="regenerate_response"):
+                            st.rerun()
+        
+        # Sample feedback examples for each style
+        st.subheader("📝 Sample Feedback Examples")
+        st.write("Try these examples to see how different communication styles handle various types of feedback:")
+        
+        example_feedbacks = {
+            "Positive Technical": "The case search feature has significantly improved our research efficiency. The integration with our existing workflow is seamless and the team adapted quickly. Very satisfied with the performance.",
+            
+            "Negative Performance": "The system has been running extremely slowly this week. Documents take forever to load and the billing module crashed twice yesterday. This is impacting our client work and needs immediate attention.",
+            
+            "Mixed Feature Request": "Overall the software works well for our basic needs. However, we really need better reporting capabilities and the mobile app could use more features. The training was helpful but we need ongoing support.",
+            
+            "Complex Integration Issue": "We're having trouble with the Outlook integration. Emails sync sometimes but not always, and the calendar appointments don't appear consistently. Our IT team has tried troubleshooting but needs technical support."
+        }
+        
+        example_cols = st.columns(2)
+        
+        for i, (example_name, example_text) in enumerate(example_feedbacks.items()):
+            with example_cols[i % 2]:
+                with st.expander(f"📋 {example_name}"):
+                    st.write(f"**Sample Feedback:** {example_text}")
+                    if st.button(f"Use This Example", key=f"comm_example_{i}"):
+                        st.session_state['comm_example_feedback'] = example_text
+                        st.success(f"Example loaded! Scroll up to generate responses.")
+        
+        # Load example if selected
+        if 'comm_example_feedback' in st.session_state:
+            st.session_state.pop('comm_example_feedback')
+            st.rerun()
 
 if __name__ == "__main__":
     main()
