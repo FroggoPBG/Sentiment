@@ -1,28 +1,15 @@
 import streamlit as st
-import anthropic
+from datetime import datetime
 
-# Page config
-st.set_page_config(page_title="Client Email Assistant", page_icon="✉️", layout="wide")
+st.set_page_config(page_title="Client Email Builder", page_icon="✉️", layout="wide")
 
-# Title
-st.title("✉️ Client Communication Assistant")
-st.markdown("Generate professional emails with the right tone, style, and language")
+st.title("✉️ Client Email Builder Tool")
+st.markdown("Build professional client emails with templates and best practices")
 
-# Sidebar for API key
+# Sidebar
 with st.sidebar:
-    st.header("🔑 Setup")
-    api_key = st.text_input("Enter your Anthropic API Key", type="password", help="Get your key from console.anthropic.com")
+    st.header("⚙️ Email Configuration")
     
-    if api_key:
-        st.success("API Key set! ✓")
-    else:
-        st.warning("Please enter your API key to continue")
-    
-    st.divider()
-    
-    st.header("⚙️ Email Settings")
-    
-    # Communication style
     communication_style = st.selectbox(
         "Communication Style",
         [
@@ -35,9 +22,8 @@ with st.sidebar:
         ]
     )
     
-    # Situation type
     situation_type = st.selectbox(
-        "Situation Type",
+        "Email Type",
         [
             "General Inquiry Response",
             "Issue/Complaint Resolution",
@@ -46,253 +32,486 @@ with st.sidebar:
             "Good News/Update",
             "Request for Information",
             "Thank You Note",
-            "Introduction/Cold Outreach",
             "Meeting Request",
-            "Escalation"
+            "Price Quote",
+            "Order Confirmation"
         ]
     )
     
-    # Language
+    urgency = st.select_slider(
+        "Urgency Level",
+        options=["Low", "Medium", "High", "Critical"],
+        value="Medium"
+    )
+    
     target_language = st.selectbox(
         "Language",
-        [
-            "English",
-            "Spanish",
-            "French",
-            "German",
-            "Italian",
-            "Portuguese",
-            "Chinese (Simplified)",
-            "Japanese",
-            "Korean",
-            "Arabic",
-            "Hindi",
-            "Russian"
-        ]
+        ["English", "Spanish", "French", "German", "Italian", "Portuguese", "Chinese"]
     )
+
+# Email templates
+TEMPLATES = {
+    "Professional & Formal": {
+        "greeting": "Dear {name},",
+        "opening": "I hope this message finds you well.",
+        "closing": "Best regards,\n{sender_name}\n{sender_title}",
+        "tone_tips": "Use complete sentences, avoid contractions, maintain distance"
+    },
+    "Friendly & Casual": {
+        "greeting": "Hi {name}!",
+        "opening": "Hope you're doing great!",
+        "closing": "Cheers,\n{sender_name}",
+        "tone_tips": "Use contractions, be warm, show personality"
+    },
+    "Empathetic & Supportive": {
+        "greeting": "Dear {name},",
+        "opening": "Thank you for reaching out to us.",
+        "closing": "We're here to help,\n{sender_name}",
+        "tone_tips": "Acknowledge feelings, show understanding, offer support"
+    },
+    "Direct & Concise": {
+        "greeting": "Hello {name},",
+        "opening": "",
+        "closing": "Thanks,\n{sender_name}",
+        "tone_tips": "Get to the point quickly, use bullet points, be clear"
+    },
+    "Apologetic & Reassuring": {
+        "greeting": "Dear {name},",
+        "opening": "I sincerely apologize for the inconvenience.",
+        "closing": "With our sincere apologies,\n{sender_name}",
+        "tone_tips": "Take responsibility, explain action steps, restore confidence"
+    },
+    "Enthusiastic & Positive": {
+        "greeting": "Hi {name}!",
+        "opening": "Great to hear from you!",
+        "closing": "Looking forward to connecting,\n{sender_name}",
+        "tone_tips": "Use exclamation points (sparingly), be upbeat, show excitement"
+    }
+}
+
+SITUATION_TEMPLATES = {
+    "Issue/Complaint Resolution": {
+        "subject": "Re: {issue} - We're Here to Help",
+        "structure": [
+            "1. Acknowledge the issue",
+            "2. Apologize for inconvenience",
+            "3. Explain what happened (briefly)",
+            "4. Outline solution/next steps",
+            "5. Provide timeline",
+            "6. Offer direct contact"
+        ],
+        "key_phrases": [
+            "I understand your frustration",
+            "We take full responsibility",
+            "Here's what we're doing to fix this",
+            "You can expect [specific action] by [date]",
+            "Please don't hesitate to contact me directly"
+        ]
+    },
+    "Apology": {
+        "subject": "Our Sincere Apologies - {issue}",
+        "structure": [
+            "1. Start with clear apology",
+            "2. Acknowledge specific issue",
+            "3. Take responsibility (no excuses)",
+            "4. Explain resolution",
+            "5. Prevent future occurrence",
+            "6. Make it right (compensation if applicable)"
+        ],
+        "key_phrases": [
+            "I sincerely apologize",
+            "This is not the experience we want you to have",
+            "We take full responsibility",
+            "Here's what we're doing to make this right",
+            "We've implemented [change] to prevent this"
+        ]
+    },
+    "Good News/Update": {
+        "subject": "Great News About {topic}!",
+        "structure": [
+            "1. Lead with the good news",
+            "2. Provide details",
+            "3. Explain benefits",
+            "4. Next steps (if any)",
+            "5. Thank them"
+        ],
+        "key_phrases": [
+            "I'm pleased to inform you",
+            "Good news!",
+            "This means that",
+            "We're excited to",
+            "Thank you for your patience"
+        ]
+    },
+    "General Inquiry Response": {
+        "subject": "Re: Your Inquiry About {topic}",
+        "structure": [
+            "1. Thank them for inquiry",
+            "2. Answer their question(s)",
+            "3. Provide additional helpful info",
+            "4. Invite follow-up questions",
+            "5. Close warmly"
+        ],
+        "key_phrases": [
+            "Thank you for your interest",
+            "To answer your question",
+            "Additionally, you might find it helpful",
+            "Please let me know if you need anything else",
+            "Happy to help further"
+        ]
+    },
+    "Follow-up Email": {
+        "subject": "Following Up: {topic}",
+        "structure": [
+            "1. Reference previous conversation",
+            "2. Purpose of follow-up",
+            "3. New information/question",
+            "4. Clear call-to-action",
+            "5. Timeline"
+        ],
+        "key_phrases": [
+            "I wanted to follow up on",
+            "As discussed",
+            "Just checking in",
+            "Could you please",
+            "By [date] would be ideal"
+        ]
+    },
+    "Thank You Note": {
+        "subject": "Thank You!",
+        "structure": [
+            "1. Express gratitude",
+            "2. Be specific about what you're thanking for",
+            "3. Mention impact/value",
+            "4. Look forward",
+            "5. Warm close"
+        ],
+        "key_phrases": [
+            "Thank you so much for",
+            "I really appreciate",
+            "This means a lot because",
+            "Looking forward to",
+            "Grateful for your"
+        ]
+    },
+    "Meeting Request": {
+        "subject": "Meeting Request: {topic}",
+        "structure": [
+            "1. State purpose",
+            "2. Propose time/duration",
+            "3. Suggest agenda",
+            "4. Provide options",
+            "5. Request confirmation"
+        ],
+        "key_phrases": [
+            "I'd like to schedule a meeting to discuss",
+            "Would you be available for",
+            "The agenda would include",
+            "I'm flexible on timing",
+            "Please let me know what works best"
+        ]
+    },
+    "Request for Information": {
+        "subject": "Information Request: {topic}",
+        "structure": [
+            "1. Context/reason for request",
+            "2. Specific information needed",
+            "3. Why you need it",
+            "4. Deadline",
+            "5. Thank them in advance"
+        ],
+        "key_phrases": [
+            "I'm reaching out to request",
+            "Specifically, I need",
+            "This will help us to",
+            "If possible, by [date]",
+            "Thank you in advance"
+        ]
+    },
+    "Price Quote": {
+        "subject": "Quote for {product/service}",
+        "structure": [
+            "1. Thank for interest",
+            "2. Present quote clearly",
+            "3. Explain what's included",
+            "4. Highlight value",
+            "5. Next steps",
+            "6. Validity period"
+        ],
+        "key_phrases": [
+            "Thank you for your interest",
+            "I'm pleased to provide a quote",
+            "This includes",
+            "The total investment is",
+            "This quote is valid until"
+        ]
+    },
+    "Order Confirmation": {
+        "subject": "Order Confirmation #{order_number}",
+        "structure": [
+            "1. Confirm order received",
+            "2. Order details/summary",
+            "3. Next steps/timeline",
+            "4. Tracking info (if applicable)",
+            "5. Support contact",
+            "6. Thank them"
+        ],
+        "key_phrases": [
+            "Thank you for your order",
+            "Order details",
+            "Expected delivery",
+            "You can track your order",
+            "If you have questions, contact"
+        ]
+    }
+}
+
+TRANSLATIONS = {
+    "Spanish": {
+        "Dear": "Estimado/a",
+        "Hi": "Hola",
+        "Hello": "Hola",
+        "Thank you": "Gracias",
+        "Best regards": "Saludos cordiales",
+        "Sincerely": "Atentamente"
+    },
+    "French": {
+        "Dear": "Cher/Chère",
+        "Hi": "Salut",
+        "Hello": "Bonjour",
+        "Thank you": "Merci",
+        "Best regards": "Cordialement",
+        "Sincerely": "Sincèrement"
+    },
+    "German": {
+        "Dear": "Liebe/Lieber",
+        "Hi": "Hallo",
+        "Hello": "Guten Tag",
+        "Thank you": "Danke",
+        "Best regards": "Mit freundlichen Grüßen",
+        "Sincerely": "Hochachtungsvoll"
+    },
+    "Italian": {
+        "Dear": "Caro/Cara",
+        "Hi": "Ciao",
+        "Hello": "Salve",
+        "Thank you": "Grazie",
+        "Best regards": "Cordiali saluti",
+        "Sincerely": "Cordialmente"
+    },
+    "Portuguese": {
+        "Dear": "Prezado/a",
+        "Hi": "Oi",
+        "Hello": "Olá",
+        "Thank you": "Obrigado/a",
+        "Best regards": "Atenciosamente",
+        "Sincerely": "Cordialmente"
+    },
+    "Chinese": {
+        "Dear": "尊敬的",
+        "Hi": "你好",
+        "Hello": "您好",
+        "Thank you": "谢谢",
+        "Best regards": "此致敬礼",
+        "Sincerely": "真诚地"
+    }
+}
+
+# Main content
+col1, col2 = st.columns([1, 1])
+
+with col1:
+    st.subheader("📝 Email Details")
+    
+    # Sender info
+    sender_name = st.text_input("Your Name *", placeholder="e.g., John Smith")
+    sender_title = st.text_input("Your Title", placeholder="e.g., Customer Success Manager")
+    sender_email = st.text_input("Your Email", placeholder="e.g., john.smith@company.com")
     
     st.divider()
     
-    st.markdown("### 💡 Tips")
-    st.markdown("""
-    - Be specific about the situation
-    - Include relevant context
-    - Mention key points to address
-    - Review before sending!
-    """)
-
-# Main content
-if not api_key:
-    st.info("👈 Please enter your Anthropic API key in the sidebar to get started")
-    st.markdown("""
-    ### How to get your API key:
-    1. Go to [console.anthropic.com](https://console.anthropic.com/)
-    2. Sign up or log in
-    3. Go to API Keys
-    4. Create a new key
-    5. Copy and paste it in the sidebar
-    """)
-else:
-    col1, col2 = st.columns([1, 1])
+    # Recipient info
+    client_name = st.text_input("Client Name *", placeholder="e.g., Sarah Johnson")
+    company_name = st.text_input("Company Name", placeholder="e.g., Acme Corp")
     
-    with col1:
-        st.subheader("📝 Input Details")
+    st.divider()
+    
+    # Email content
+    subject_topic = st.text_input("Main Topic/Issue", placeholder="e.g., Delayed Shipment Order #12345")
+    
+    situation = st.text_area(
+        "Situation Description *",
+        placeholder="Describe the situation you're addressing...",
+        height=100
+    )
+    
+    key_points = st.text_area(
+        "Key Points to Include",
+        placeholder="List the main points you want to cover (one per line)",
+        height=80
+    )
+    
+    additional_notes = st.text_input(
+        "Additional Notes",
+        placeholder="e.g., VIP customer, urgent, follow-up from phone call"
+    )
+
+with col2:
+    st.subheader("📧 Email Builder")
+    
+    if sender_name and client_name and situation:
+        # Get templates
+        style_template = TEMPLATES.get(communication_style, TEMPLATES["Professional & Formal"])
+        situation_template = SITUATION_TEMPLATES.get(situation_type, {})
         
-        # Client information
-        client_name = st.text_input(
-            "Client Name (optional)",
-            placeholder="e.g., Sarah Johnson"
+        # Build email
+        st.markdown("### Suggested Subject Line:")
+        suggested_subject = situation_template.get("subject", "Re: {topic}").format(
+            issue=subject_topic or "Your Inquiry",
+            topic=subject_topic or "Your Request",
+            order_number="[ORDER#]"
         )
         
-        company_name = st.text_input(
-            "Company Name (optional)",
-            placeholder="e.g., Acme Corp"
+        subject_line = st.text_input(
+            "Subject:",
+            value=suggested_subject,
+            label_visibility="collapsed"
         )
         
-        # Situation description
-        situation = st.text_area(
-            "Describe the Situation *",
-            placeholder="e.g., Client's shipment was delayed by 5 days due to weather. They need it urgently for an event this weekend.",
-            height=150,
-            help="Be as specific as possible about what happened"
+        st.divider()
+        
+        # Email body
+        st.markdown("### Email Body:")
+        
+        # Greeting
+        greeting = style_template["greeting"].format(name=client_name)
+        if target_language != "English" and target_language in TRANSLATIONS:
+            for eng, trans in TRANSLATIONS[target_language].items():
+                greeting = greeting.replace(eng, trans)
+        
+        # Opening
+        opening = style_template["opening"]
+        
+        # Body structure
+        st.info(f"**Recommended Structure for {situation_type}:**")
+        if "structure" in situation_template:
+            for step in situation_template["structure"]:
+                st.markdown(f"- {step}")
+        
+        st.divider()
+        
+        # Text areas for each section
+        email_greeting = st.text_area("Greeting:", value=greeting, height=50)
+        
+        email_opening = st.text_area("Opening:", value=opening, height=50)
+        
+        email_body = st.text_area(
+            "Main Content:",
+            placeholder="Write your main message here...\n\nUse the structure and key phrases below as a guide.",
+            height=200
         )
         
-        # Key points
-        key_points = st.text_area(
-            "Key Points to Address",
-            placeholder="e.g., Apologize for delay, explain weather issue, offer express shipping refund, provide new delivery date",
-            height=100
+        # Closing
+        closing = style_template["closing"].format(
+            sender_name=sender_name,
+            sender_title=sender_title or ""
         )
+        if target_language != "English" and target_language in TRANSLATIONS:
+            for eng, trans in TRANSLATIONS[target_language].items():
+                closing = closing.replace(eng, trans)
         
-        # Additional context
-        additional_context = st.text_input(
-            "Additional Context",
-            placeholder="e.g., VIP customer, second incident this month, contract renewal coming up"
-        )
+        email_closing = st.text_area("Closing:", value=closing, height=80)
         
-        # Tone adjustments
-        with st.expander("🎚️ Advanced Options"):
-            urgency = st.select_slider(
-                "Urgency Level",
-                options=["Low", "Medium", "High", "Critical"],
-                value="Medium"
+        # Signature
+        if sender_email:
+            email_signature = st.text_area(
+                "Signature:",
+                value=f"{sender_name}\n{sender_title}\n{sender_email}",
+                height=80
             )
-            
-            formality = st.select_slider(
-                "Formality Level",
-                options=["Very Casual", "Casual", "Neutral", "Formal", "Very Formal"],
-                value="Neutral"
-            )
-            
-            include_cta = st.checkbox("Include Call-to-Action", value=True)
-        
-        # Generate button
-        generate_button = st.button(
-            "✨ Generate Email",
-            type="primary",
+        else:
+            email_signature = ""
+
+# Helper panel
+st.divider()
+
+col_help1, col_help2 = st.columns(2)
+
+with col_help1:
+    st.markdown("### 💡 Writing Tips")
+    if communication_style in TEMPLATES:
+        st.info(f"**{communication_style}:** {TEMPLATES[communication_style]['tone_tips']}")
+    
+    if urgency == "High" or urgency == "Critical":
+        st.warning("⚡ **High Urgency Tips:**\n- State urgency in subject\n- Be clear about timeframe\n- Provide direct contact info\n- Keep it concise")
+    
+    if situation_type in SITUATION_TEMPLATES and "key_phrases" in SITUATION_TEMPLATES[situation_type]:
+        st.markdown("**Suggested Phrases:**")
+        for phrase in SITUATION_TEMPLATES[situation_type]["key_phrases"][:3]:
+            st.markdown(f"- _{phrase}_")
+
+with col_help2:
+    st.markdown("### ✅ Email Checklist")
+    
+    checklist = st.container()
+    with checklist:
+        st.checkbox("Clear subject line", value=bool(subject_topic))
+        st.checkbox("Personalized greeting", value=bool(client_name))
+        st.checkbox("States purpose clearly")
+        st.checkbox("Addresses all key points")
+        st.checkbox("Appropriate tone")
+        st.checkbox("Clear next steps/call-to-action")
+        st.checkbox("Professional closing")
+        st.checkbox("Contact information included")
+        st.checkbox("Proofread for errors")
+
+# Final output
+st.divider()
+st.markdown("## 📬 Final Email")
+
+if sender_name and client_name:
+    final_email = f"""**SUBJECT:** {subject_line if 'subject_line' in locals() else '[Add subject]'}
+
+{email_greeting if 'email_greeting' in locals() else ''}
+
+{email_opening if 'email_opening' in locals() else ''}
+
+{email_body if 'email_body' in locals() else '[Write your main message here]'}
+
+{email_closing if 'email_closing' in locals() else ''}
+
+{email_signature if 'email_signature' in locals() else ''}
+"""
+    
+    st.text_area("", value=final_email, height=400, label_visibility="collapsed")
+    
+    # Action buttons
+    col_btn1, col_btn2, col_btn3 = st.columns(3)
+    
+    with col_btn1:
+        st.download_button(
+            label="📥 Download Email",
+            data=final_email,
+            file_name=f"email_{client_name.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.txt",
+            mime="text/plain",
             use_container_width=True
         )
     
-    with col2:
-        st.subheader("📧 Generated Email")
-        
-        if generate_button:
-            if not situation.strip():
-                st.error("⚠️ Please describe the situation first!")
-            else:
-                with st.spinner("✍️ Crafting your email..."):
-                    # Build prompt
-                    prompt = f"""You are a professional email writing assistant. Generate a client-facing email based on the following details:
+    with col_btn2:
+        if st.button("📋 Copy to Clipboard", use_container_width=True):
+            st.success("✓ Email copied!")
+    
+    with col_btn3:
+        if st.button("🔄 Start Over", use_container_width=True):
+            st.rerun()
 
-**Situation Type:** {situation_type}
-**Communication Style:** {communication_style}
-**Situation:** {situation}
-"""
-                    
-                    if client_name:
-                        prompt += f"\n**Client Name:** {client_name}"
-                    
-                    if company_name:
-                        prompt += f"\n**Company:** {company_name}"
-                    
-                    if key_points:
-                        prompt += f"\n**Key Points to Address:** {key_points}"
-                    
-                    if additional_context:
-                        prompt += f"\n**Additional Context:** {additional_context}"
-                    
-                    prompt += f"\n**Urgency Level:** {urgency}"
-                    prompt += f"\n**Formality Level:** {formality}"
-                    
-                    prompt += f"""
-
-Please generate an email that:
-1. Matches the {communication_style} style
-2. Is appropriate for a {situation_type} scenario
-3. Addresses all key points mentioned
-4. Is client-focused and professional
-5. Has a clear, compelling subject line
-6. Uses the appropriate level of urgency and formality
-"""
-                    
-                    if include_cta:
-                        prompt += "\n7. Includes a clear call-to-action"
-                    
-                    prompt += """
-
-Format your response EXACTLY like this:
-
-**SUBJECT:** [Write a clear subject line]
-
-**EMAIL:**
-
-[Write the complete email body here]
-
-**TONE CHECK:** [Brief note on the tone used]
-"""
-                    
-                    if target_language != "English":
-                        prompt += f"\n\nAfter generating the email in English, provide a translation in {target_language}. Show both versions clearly labeled."
-                    
-                    try:
-                        # Create Anthropic client
-                        client = anthropic.Anthropic(api_key=api_key)
-                        
-                        # Call API
-                        message = client.messages.create(
-                            model="claude-sonnet-4-20250514",
-                            max_tokens=2500,
-                            messages=[
-                                {"role": "user", "content": prompt}
-                            ]
-                        )
-                        
-                        # Get response
-                        email_content = message.content[0].text
-                        
-                        # Display result
-                        st.markdown(email_content)
-                        
-                        # Action buttons
-                        st.divider()
-                        
-                        col_a, col_b, col_c = st.columns(3)
-                        
-                        with col_a:
-                            st.download_button(
-                                label="📥 Download",
-                                data=email_content,
-                                file_name="client_email.txt",
-                                mime="text/plain",
-                                use_container_width=True
-                            )
-                        
-                        with col_b:
-                            if st.button("🔄 Regenerate", use_container_width=True):
-                                st.rerun()
-                        
-                        with col_c:
-                            st.button("📋 Copy", use_container_width=True, help="Click to copy to clipboard")
-                        
-                        # Feedback
-                        st.divider()
-                        st.markdown("**Was this email helpful?**")
-                        col_f1, col_f2 = st.columns(2)
-                        with col_f1:
-                            st.button("👍 Yes", use_container_width=True)
-                        with col_f2:
-                            st.button("👎 Needs work", use_container_width=True)
-                        
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
-                        st.info("Please check your API key and try again.")
-        
-        else:
-            st.info("👈 Fill in the details on the left and click 'Generate Email'")
-            
-            # Show example
-            with st.expander("📖 See Example"):
-                st.markdown("""
-                **Example Input:**
-                - **Situation:** Customer's order arrived damaged
-                - **Style:** Empathetic & Supportive
-                - **Key Points:** Apologize, offer replacement, provide discount
-                
-                **Example Output:**
-                
-                **SUBJECT:** We're Sorry - Immediate Replacement for Your Order #12345
-                
-                **EMAIL:**
-                
-                Dear Sarah,
-                
-                I'm truly sorry to hear that your recent order arrived damaged. I understand how disappointing this must be, especially when you were looking forward to receiving your items in perfect condition...
-                """)
+else:
+    st.info("👈 Fill in the required fields (Your Name, Client Name, Situation) to build your email")
 
 # Footer
 st.divider()
 st.markdown("""
 <div style='text-align: center; color: #666; padding: 20px;'>
-    <p>Powered by Claude AI • Always review emails before sending • Keep your API key secure</p>
+    <p>💼 Professional Email Builder • Always review before sending • Customize for your specific needs</p>
 </div>
 """, unsafe_allow_html=True)
