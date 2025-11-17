@@ -218,10 +218,9 @@ def generate_sample_data():
         "Security features are robust and give us confidence in client data protection.",
         "User interface is clean and modern, much better than our previous software."
     ]
-    dates = pd.date_range(start='2024-01-01', end='2024-10-28', freq='D')
+    
     data = []
     for i in range(200):  # 200 feedback entries
-        date = np.random.choice(dates)
         nps_score = np.random.randint(0, 11)  # 0 to 10 inclusive
         # Choose response tendency based on NPS score
         if nps_score >= 9:
@@ -244,7 +243,6 @@ def generate_sample_data():
             'Real Estate', 'Personal Injury', 'Employment Law'
         ])
         data.append({
-            'Date': date,
             'NPS_Score': nps_score,
             'Feedback_Text': response,
             'Client_Type': client_type,
@@ -252,7 +250,6 @@ def generate_sample_data():
             'Respondent_ID': f"Client_{i+1:03d}"
         })
     df_sample = pd.DataFrame(data)
-    df_sample['Date'] = pd.to_datetime(df_sample['Date'])
     return df_sample
 
 def calculate_nps_metrics(df):
@@ -306,7 +303,6 @@ def analyze_feedback_aspects(df, analyzer):
         for asp in aspects:
             sentiment_label = 'Positive' if asp['sentiment'] > 0.1 else 'Negative' if asp['sentiment'] < -0.1 else 'Neutral'
             aspect_data.append({
-                'Date': row['Date'],
                 'Aspect': asp['name'],
                 'Sentiment_Score': asp['sentiment'],
                 'Sentiment_Label': sentiment_label,
@@ -330,13 +326,12 @@ def main():
     uploaded_file = st.sidebar.file_uploader(
         "Upload your feedback data (CSV)",
         type=['csv'],
-        help="Expecting columns: Date, NPS_Score, Feedback_Text, Client_Type, Practice_Area"
+        help="Expecting columns: NPS_Score, Feedback_Text, Client_Type, Practice_Area"
     )
     # Load data
     if uploaded_file is not None:
         try:
             df = pd.read_csv(uploaded_file)
-            df['Date'] = pd.to_datetime(df['Date'])
             st.sidebar.success("✅ Data uploaded successfully!")
         except Exception as e:
             st.sidebar.error(f"Error loading file: {e}")
@@ -354,21 +349,11 @@ def main():
             mime="text/csv"
         )
 
-    # Sidebar - Date range filter
-    st.sidebar.subheader("📅 Date Range Filter")
-    min_date = df['Date'].min().date()
-    max_date = df['Date'].max().date()
-    start_date = st.sidebar.date_input("Start Date", min_date)
-    end_date = st.sidebar.date_input("End Date", max_date)
-    # Ensure valid date range
-    if start_date > end_date:
-        st.sidebar.error("Error: Start Date must be before End Date.")
-        st.stop()
-    # Filter dataframe by date
-    mask = (df['Date'].dt.date >= start_date) & (df['Date'].dt.date <= end_date)
-    filtered_df = df.loc[mask].copy()
+    # Use the full dataframe (no date filtering)
+    filtered_df = df.copy()
+    
     if filtered_df.empty:
-        st.warning("No feedback data available for the selected date range.")
+        st.warning("No feedback data available.")
         return
 
     # Calculate NPS metrics for filtered data
@@ -379,11 +364,11 @@ def main():
     col1.metric(label="📊 NPS Score", value=f"{nps_metrics['nps_score']:.1f}", delta="Target: 50+")
     col2.metric(label="🎯 Promoters", value=nps_metrics['promoters'], delta=f"{nps_metrics['promoter_rate']:.1f}%")
     col3.metric(label="⚠️ Detractors", value=nps_metrics['detractors'], delta=f"{nps_metrics['detractor_rate']:.1f}%")
-    col4.metric(label="📝 Total Responses", value=nps_metrics['total_responses'], delta="Last 30 days")
+    col4.metric(label="📝 Total Responses", value=nps_metrics['total_responses'])
 
     # Create tabs for different analysis sections
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🔍 Aspect Analysis", "📈 Sentiment Trends",
+        "🔍 Aspect Analysis", "📈 Sentiment Analysis",
         "💡 AI Recommendations", "📝 Feedback Details",
         "✉️ Email/Transcript Analysis"
     ])
@@ -415,34 +400,10 @@ def main():
         else:
             st.info("No specific legal aspects were mentioned in the selected feedback data.")
 
-    # Tab 2: Sentiment Trends
+    # Tab 2: Sentiment Analysis
     with tab2:
-        st.subheader("📈 Sentiment Trends Over Time")
-        # Compute average sentiment per day and response count per day
-        daily_sentiment = []
-        for date, group in filtered_df.groupby(filtered_df['Date'].dt.date):
-            avg_sent = np.mean([analyzer.analyze_sentiment(text)['score'] for text in group['Feedback_Text']])
-            daily_sentiment.append({
-                'Date': pd.to_datetime(date),
-                'Avg_Sentiment': avg_sent,
-                'Response_Count': len(group)
-            })
-        sentiment_df = pd.DataFrame(daily_sentiment).sort_values('Date')
-
-        # Create a two-row plot: line chart for sentiment, bar chart for volume
-        fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                            subplot_titles=("Average Daily Sentiment", "Daily Response Volume"),
-                            vertical_spacing=0.15)
-        fig.add_trace(go.Scatter(x=sentiment_df['Date'], y=sentiment_df['Avg_Sentiment'],
-                                 mode='lines+markers', name='Avg Sentiment',
-                                 line=dict(color='blue')), row=1, col=1)
-        fig.add_trace(go.Bar(x=sentiment_df['Date'], y=sentiment_df['Response_Count'],
-                             name='Responses', marker_color='skyblue'), row=2, col=1)
-        fig.update_layout(height=600, showlegend=False, xaxis=dict(title="Date"))
-        fig.update_yaxes(title_text="Sentiment Score", row=1, col=1)
-        fig.update_yaxes(title_text="# of Responses", row=2, col=1)
-        st.plotly_chart(fig, use_container_width=True)
-
+        st.subheader("📈 Sentiment Distribution Analysis")
+        
         # Distribution of sentiment labels
         col_left, col_right = st.columns(2)
         with col_left:
@@ -468,6 +429,42 @@ def main():
             )
             fig_box.update_traces(quartilemethod="inclusive")
             st.plotly_chart(fig_box, use_container_width=True)
+            
+        # Sentiment by Client Type and Practice Area
+        st.subheader("📊 Sentiment by Demographics")
+        col_demo1, col_demo2 = st.columns(2)
+        
+        with col_demo1:
+            client_sentiment = pd.DataFrame([
+                {
+                    'Client_Type': row['Client_Type'], 
+                    'Sentiment': analyzer.analyze_sentiment(row['Feedback_Text'])['label']
+                }
+                for _, row in filtered_df.iterrows()
+            ])
+            client_sent_counts = client_sentiment.groupby(['Client_Type', 'Sentiment']).size().unstack(fill_value=0)
+            fig_client = px.bar(
+                client_sent_counts, 
+                title="Sentiment by Client Type",
+                color_discrete_map={'positive': '#2E8B57', 'neutral': '#DAA520', 'negative': '#DC143C'}
+            )
+            st.plotly_chart(fig_client, use_container_width=True)
+            
+        with col_demo2:
+            practice_sentiment = pd.DataFrame([
+                {
+                    'Practice_Area': row['Practice_Area'], 
+                    'Sentiment': analyzer.analyze_sentiment(row['Feedback_Text'])['label']
+                }
+                for _, row in filtered_df.iterrows()
+            ])
+            practice_sent_counts = practice_sentiment.groupby(['Practice_Area', 'Sentiment']).size().unstack(fill_value=0)
+            fig_practice = px.bar(
+                practice_sent_counts, 
+                title="Sentiment by Practice Area",
+                color_discrete_map={'positive': '#2E8B57', 'neutral': '#DAA520', 'negative': '#DC143C'}
+            )
+            st.plotly_chart(fig_practice, use_container_width=True)
 
     # Tab 3: AI Recommendations
     with tab3:
@@ -557,7 +554,7 @@ def main():
             sentiment_label = sentiment_result['label']
             sentiment_conf = sentiment_result['confidence']
             sentiment_emoji = "😊" if sentiment_label == 'positive' else "😞" if sentiment_label == 'negative' else "😐"
-            expander_title = f"{sentiment_emoji} NPS: {row['NPS_Score']} | {row['Client_Type']} | {row['Date'].strftime('%Y-%m-%d')}"
+            expander_title = f"{sentiment_emoji} NPS: {row['NPS_Score']} | {row['Client_Type']}"
             with st.expander(expander_title):
                 st.write(f"**Feedback:** {row['Feedback_Text']}")
                 col_det1, col_det2 = st.columns(2)
